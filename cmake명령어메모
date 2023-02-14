@@ -1,0 +1,7 @@
+세팅 : cmake -Bbuild . -DCMAKE_BUILD_TYPE=Debug
+=> build폴더를 루트(.)경로에 디버그모드로 생성 
+
+빌드 : cmake --build build
+
+실행 : .\build\Debug\ComputerGraphics.exe
+
