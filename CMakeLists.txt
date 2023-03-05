@@ -17,6 +17,8 @@ src/program.cpp src/program.h
 src/context.cpp src/context.h
 src/buffer.cpp src/buffer.h
 src/vertexLayout.cpp src/vertexLayout.h
+src/image.cpp src/image.h
+src/texture.cpp src/texture.h
 )
 
 
