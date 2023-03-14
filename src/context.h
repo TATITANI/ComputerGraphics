@@ -6,6 +6,8 @@
 #include "buffer.h"
 #include "texture.h"
 #include "vertexLayout.h"
+#include "mesh.h"
+#include "model.h"
 
 CLASS_PTR(Context)
 class Context
@@ -23,9 +25,10 @@ private:
     Context() {}
 
     bool Init();
-    void InitVertices();
     ProgramUPtr m_program;
     ProgramUPtr m_simpleProgram;
+    MeshUPtr m_box;
+    ModelUPtr m_model;
 
 private:
     // 창 크기
@@ -33,12 +36,8 @@ private:
     int m_height{480};
 
 private:
-    BufferUPtr m_vertexBuffer;
-    BufferUPtr m_indexBuffer;
-    VertexLayoutUPtr m_vertexLayout;
     TextureUPtr m_texture;
     TextureUPtr m_texture2;
-    uint32_t m_vertexArrayObject;
 
 private:
     // camera parameter
@@ -76,20 +75,14 @@ private:
         glm::vec3 position{glm::vec3(2.0f, 2.0f, 2.0f)};
         glm::vec3 direction{glm::vec3(-1.0f, -1.0f, -1.0f)};
         // inner cut-off angle, offset angle
-        glm::vec2 cutoff { glm::vec2(20.0f, 5.0f) };
+        glm::vec2 cutoff{glm::vec2(20.0f, 5.0f)};
         float distance{32.0f};
         glm::vec3 ambient{glm::vec3(0.1f, 0.1f, 0.1f)};
         glm::vec3 diffuse{glm::vec3(0.5f, 0.5f, 0.5f)};
         glm::vec3 specular{glm::vec3(1.0f, 1.0f, 1.0f)};
     };
     Light m_light;
+    bool m_freshLightMode{false}; // 손전등 모드
 
-    // material parameter
-    struct Material
-    {
-        TextureUPtr diffuse;
-        TextureUPtr specular;
-        float shininess{32.0f};
-    };
-    Material m_material;
+    MaterialPtr m_material;
 };

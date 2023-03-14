@@ -16,10 +16,10 @@ public:
         size_t stride, uint64_t offset) const;
 
     void DisableAttrib(int attribIndex) const;
+    void Bind() const;
 
 private:
     VertexLayout() {}
-    void Bind() const;
     void Init();
     uint32_t m_vertexArrayObject{0};
 };

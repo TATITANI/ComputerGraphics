@@ -56,7 +56,6 @@ void main() {
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
         vec3 specular = spec * specColor * light.specular;
 
-        // result += diffuse + specular;
         result += (diffuse + specular) * intensity;
     }
     result *= attenuation;
