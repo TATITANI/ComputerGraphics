@@ -15,6 +15,7 @@ bool Context::Init()
     glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
 
     m_box = Mesh::CreateBox();
+    m_plane = Mesh::CreatePlane();
     // 단색 큐브
     m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
     if (!m_simpleProgram)
@@ -25,12 +26,19 @@ bool Context::Init()
         return false;
     SPDLOG_INFO("program id: {}", m_program->Get());
 
+    m_textureProgram = Program::Create("./shader/texture.vs", "./shader/texture.fs");
+    if (!m_textureProgram)
+        return false;
+
     // 단색 매터리얼 생성
     TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(
         Image::CreateSingleColorImage(4, 4, glm::vec4(0.2f, 0.2f, 0.2f, 1.0f))));
 
     TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(
         Image::CreateSingleColorImage(4, 4, glm::vec4(0.5f, 0.5f, 0.5f, 1.0f))));
+
+    m_windowTexture = Texture::CreateFromImage(ImagePtr(
+        Image::Load("./image/blending_transparent_window.png")));
 
     m_planeMaterial = Material::Create();
     m_planeMaterial->diffuse = Texture::CreateFromImage(ImagePtr(
@@ -58,7 +66,7 @@ void Context::Render()
 {
     RenderIMGUI();
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT) ;
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
     m_cameraFront =
@@ -106,20 +114,6 @@ void Context::Render()
     m_program->SetUniform("material.diffuse", 0); // texture slot
     m_program->SetUniform("material.specular", 1);
 
-    // for (size_t i = 0; i < cubePositions.size(); i++)
-    // {
-    //     auto &pos = cubePositions[i];
-    //     auto angle = glm::radians((m_animation ? (float)glfwGetTime() : 0) * 120.0f + 20.0f * (float)i);
-    //     auto modelTrf = glm::translate(glm::mat4(1.0f), pos);
-    //     modelTrf = glm::rotate(modelTrf, angle, glm::vec3(1.0f, 0.5f, 0.0f));
-
-    //     auto transform = projection * view * modelTrf;
-    //     m_program->SetUniform("transform", transform);
-    //     m_program->SetUniform("modelTransform", modelTrf);
-    //     // primitive 타입, ebo내 index 개수, index 데이터형, ebo 첫 데이터의 오프셋
-    //     m_box->Draw();
-    // }
-
     auto modelTransform =
         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
@@ -153,7 +147,7 @@ void Context::Render()
     glEnable(GL_STENCIL_TEST);
     // @param : 스텐실 테스트 실패, 스텐실 테스트는 통과했지만 depth test실패, 성공시 이벤트
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);  
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilMask(0xFF); // 업데이트 되는 스텐실 버퍼의 비트 설정. 0xFF : 모든 비트 기록.
 
     modelTransform =
@@ -177,9 +171,38 @@ void Context::Render()
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
-    
+
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilMask(0xFF);
+
+    // alpha blend
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glEnable(GL_CULL_FACE);
+    // glCullFace(GL_BACK); // 뒷면 컬링
+
+    m_textureProgram->Use();
+    m_windowTexture->Bind();
+    m_textureProgram->SetUniform("tex", 0);
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->SetUniform("transform", transform);
+    m_plane->Draw(m_textureProgram.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.2f, 0.5f, 5.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->SetUniform("transform", transform);
+    m_plane->Draw(m_textureProgram.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.4f, 0.5f, 6.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->SetUniform("transform", transform);
+    m_plane->Draw(m_textureProgram.get());
 }
 
 void Context::RenderIMGUI()

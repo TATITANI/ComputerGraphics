@@ -39,7 +39,7 @@ public:
                            uint32_t primitiveType);
 
     static MeshUPtr Mesh::CreateBox();
-
+    static MeshUPtr CreatePlane();
     static MeshUPtr MakeBox();
 
     const VertexLayout *GetVertexLayout() const
