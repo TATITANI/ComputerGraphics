@@ -28,7 +28,6 @@ private:
     ProgramUPtr m_program;
     ProgramUPtr m_simpleProgram;
     MeshUPtr m_box;
-    ModelUPtr m_model;
 
 private:
     // 창 크기
@@ -43,7 +42,7 @@ private:
     // camera parameter
     float m_cameraPitch{0.0f};
     float m_cameraYaw{0.0f};
-    glm::vec3 m_cameraPos{glm::vec3(0.0f, 0.0f, 3.0f)};
+    glm::vec3 m_cameraPos{glm::vec3(0.0f, 2.0f, 12.0f)};
     glm::vec3 m_cameraFront{glm::vec3(0.0f, 0.0f, -1.0f)};
     glm::vec3 m_cameraUp{glm::vec3(0.0f, 1.0f, 0.0f)};
     bool m_cameraControl{false};
@@ -72,11 +71,11 @@ private:
     // light parameter
     struct Light
     {
-        glm::vec3 position{glm::vec3(2.0f, 2.0f, 2.0f)};
+        glm::vec3 position{glm::vec3(1.0f, 4.0f, 4.0f)};
         glm::vec3 direction{glm::vec3(-1.0f, -1.0f, -1.0f)};
         // inner cut-off angle, offset angle
-        glm::vec2 cutoff{glm::vec2(20.0f, 5.0f)};
-        float distance{32.0f};
+        glm::vec2 cutoff{glm::vec2(120.0f, 5.0f)};
+        float distance{120.0f};
         glm::vec3 ambient{glm::vec3(0.1f, 0.1f, 0.1f)};
         glm::vec3 diffuse{glm::vec3(0.5f, 0.5f, 0.5f)};
         glm::vec3 specular{glm::vec3(1.0f, 1.0f, 1.0f)};
@@ -84,5 +83,9 @@ private:
     Light m_light;
     bool m_freshLightMode{false}; // 손전등 모드
 
-    MaterialPtr m_material;
+private:
+    MaterialPtr m_planeMaterial;
+    MaterialPtr m_box1Material;
+    MaterialPtr m_box2Material;
+
 };

@@ -14,10 +14,6 @@ bool Context::Init()
 {
     glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
 
-    m_model = Model::Load("./model/backpack.obj");
-    if (!m_model)
-        return false;
-
     m_box = Mesh::CreateBox();
     // 단색 큐브
     m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
@@ -29,40 +25,31 @@ bool Context::Init()
         return false;
     SPDLOG_INFO("program id: {}", m_program->Get());
 
-    ////// texture
-    auto image = ImagePtr(Image::Load("./image/container.jpg"));
-    if (!image)
-        return false;
-    SPDLOG_INFO("image: {}x{}, {} channels", image->GetWidth(), image->GetHeight(), image->GetChannelCount());
-    m_texture = Texture::CreateFromImage(image);
+    // 단색 매터리얼 생성
+    TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(
+        Image::CreateSingleColorImage(4, 4, glm::vec4(0.2f, 0.2f, 0.2f, 1.0f))));
 
-    auto image2 = ImagePtr(Image::Load("./image/awesomeface.png"));
-    m_texture2 = Texture::CreateFromImage(image2);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_texture->Get());
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_texture2->Get());
-
-    m_program->Use(); // don't forget to activate the shader before setting uniforms!
-    // uniform 변수 설정
-    m_program->SetUniform("tex", 0);
-    m_program->SetUniform("tex2", 1);
-
-    // x축으로 -55도 회전
-    auto model = glm::rotate(glm::mat4(1.0f), glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    // 카메라는 원점으로부터 z축 방향으로 -3만큼 떨어짐
-    auto view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
-    // 종횡비 4:3, 세로화각 45도의 원근 투영
-    auto projection = glm::perspective(glm::radians(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.01f, 10.0f);
-    auto transform = projection * view * model;
-    m_program->SetUniform("transform", transform);
-
-    m_material = Material::Create();
-    m_material->diffuse = Texture::CreateFromImage(ImagePtr(
-        Image::CreateSingleColorImage(4, 4, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f))));
-    m_material->specular = Texture::CreateFromImage(ImagePtr(
+    TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(
         Image::CreateSingleColorImage(4, 4, glm::vec4(0.5f, 0.5f, 0.5f, 1.0f))));
+
+    m_planeMaterial = Material::Create();
+    m_planeMaterial->diffuse = Texture::CreateFromImage(ImagePtr(
+        Image::Load("./image/marble.jpg")));
+    m_planeMaterial->specular = grayTexture;
+    m_planeMaterial->shininess = 128.0f;
+
+    m_box1Material = Material::Create();
+    m_box1Material->diffuse = Texture::CreateFromImage(ImagePtr(
+        Image::Load("./image/container.jpg")));
+    m_box1Material->specular = darkGrayTexture;
+    m_box1Material->shininess = 16.0f;
+
+    m_box2Material = Material::Create();
+    m_box2Material->diffuse = Texture::CreateFromImage(ImagePtr(
+        Image::Load("./image/container2.png")));
+    m_box2Material->specular = Texture::CreateFromImage(
+        ImagePtr(Image::Load("./image/container2_specular.png")));
+    m_box2Material->shininess = 64.0f;
 
     return true;
 }
@@ -71,7 +58,7 @@ void Context::Render()
 {
     RenderIMGUI();
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT) ;
     glEnable(GL_DEPTH_TEST);
 
     m_cameraFront =
@@ -79,14 +66,8 @@ void Context::Render()
         glm::rotate(glm::mat4(1.0f), glm::radians(m_cameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
         glm::vec4(0.0f, 0.0f, -1.0f, 0.0f); // 4차원 성분이 0이면 벡터, 1이면 점
 
-    auto projection = glm::perspective(glm::radians(45.0f), (float)m_width / (float)m_height, 0.01f, 20.0f);
-
-    const float radius = 10.0f;
-    float camX = sin(glfwGetTime()) * radius;
-    float camZ = cos(glfwGetTime()) * radius;
-    auto cameraPos = glm::vec3(camX, 0.0f, camZ);
-    auto cameraTarget = glm::vec3(0, 0.0f, 0.0f);
-    auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    // 종횡비 4:3, 세로화각 45도의 원근 투영
+    auto projection = glm::perspective(glm::radians(45.0f), (float)m_width / (float)m_height, 0.01f, 1000.0f);
 
     auto view = glm::lookAt(m_cameraPos, m_cameraPos + m_cameraFront, m_cameraUp);
 
@@ -124,18 +105,6 @@ void Context::Render()
 
     m_program->SetUniform("material.diffuse", 0); // texture slot
     m_program->SetUniform("material.specular", 1);
-    m_program->SetUniform("material.shininess", m_material->shininess);
-
-    glActiveTexture(GL_TEXTURE0);
-    m_material->diffuse->Bind();
-    glActiveTexture(GL_TEXTURE1);
-    m_material->specular->Bind();
-
-    auto modelTransform = glm::mat4(1.0f);
-    auto transform = projection * view * modelTransform;
-    m_program->SetUniform("transform", transform);
-    m_program->SetUniform("modelTransform", modelTransform);
-    m_model->Draw(m_program.get());
 
     // for (size_t i = 0; i < cubePositions.size(); i++)
     // {
@@ -150,6 +119,67 @@ void Context::Render()
     //     // primitive 타입, ebo내 index 개수, index 데이터형, ebo 첫 데이터의 오프셋
     //     m_box->Draw();
     // }
+
+    auto modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
+    auto transform = projection * view * modelTransform;
+    m_program->SetUniform("transform", transform);
+    m_program->SetUniform("modelTransform", modelTransform);
+    m_planeMaterial->SetToProgram(m_program.get());
+    m_box->Draw(m_program.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.75f, -4.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+    transform = projection * view * modelTransform;
+    m_program->SetUniform("transform", transform);
+    m_program->SetUniform("modelTransform", modelTransform);
+    m_box1Material->SetToProgram(m_program.get());
+    m_box->Draw(m_program.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.749f, 2.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+    transform = projection * view * modelTransform;
+    m_program->SetUniform("transform", transform);
+    m_program->SetUniform("modelTransform", modelTransform);
+    m_box2Material->SetToProgram(m_program.get());
+    m_box->Draw(m_program.get());
+
+    // 스텐실 테스트
+    glEnable(GL_STENCIL_TEST);
+    // @param : 스텐실 테스트 실패, 스텐실 테스트는 통과했지만 depth test실패, 성공시 이벤트
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);  
+    glStencilMask(0xFF); // 업데이트 되는 스텐실 버퍼의 비트 설정. 0xFF : 모든 비트 기록.
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.75f, 2.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+    transform = projection * view * modelTransform;
+    m_program->SetUniform("transform", transform);
+    m_program->SetUniform("modelTransform", modelTransform);
+    m_box2Material->SetToProgram(m_program.get());
+    m_box->Draw(m_program.get());
+
+    glStencilFunc(GL_NOTEQUAL, 1, 0xFF); // 1이 아닌 프래그먼트만 그림
+    glStencilMask(0x00);
+    glDisable(GL_DEPTH_TEST);
+    m_simpleProgram->Use();
+    m_simpleProgram->SetUniform("color", glm::vec4(1.0f, 1.0f, 0.5f, 1.0f));
+    m_simpleProgram->SetUniform("transform", transform *
+                                                 glm::scale(glm::mat4(1.0f), glm::vec3(1.05f, 1.05f, 1.05f)));
+    m_box->Draw(m_simpleProgram.get());
+
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilMask(0xFF);
 }
 
 void Context::RenderIMGUI()
@@ -168,11 +198,6 @@ void Context::RenderIMGUI()
             ImGui::Checkbox("flash light", &m_freshLightMode);
         }
 
-        if (ImGui::CollapsingHeader("material", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::DragFloat("m.shininess", &m_material->shininess, 1.0f, 1.0f, 256.0f);
-        }
-
         ImGui::Checkbox("animation", &m_animation);
 
         if (ImGui::ColorEdit4("clear color", glm::value_ptr(m_clearColor)))
@@ -181,7 +206,7 @@ void Context::RenderIMGUI()
         }
         ImGui::Separator();
         ImGui::DragFloat3("camera pos", glm::value_ptr(m_cameraPos), 0.01f);
-        ImGui::DragFloat("camera pos", &m_cameraYaw), 0.5f;
+        ImGui::DragFloat("camera yaw", &m_cameraYaw), 0.5f;
         ImGui::DragFloat("camera pitch", &m_cameraPitch, 0.5f, -89, 89);
         ImGui::Separator();
         if (ImGui::Button("reset camera"))
