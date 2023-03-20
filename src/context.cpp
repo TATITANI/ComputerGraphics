@@ -30,6 +30,14 @@ bool Context::Init()
     if (!m_textureProgram)
         return false;
 
+    // m_postProgram = Program::Create("./shader/texture.vs", "./shader/invert.fs");
+    // if (!m_postProgram)
+    //     return false;
+
+    m_postProgram = Program::Create("./shader/texture.vs", "./shader/gamma.fs");
+    if (!m_postProgram)
+        return false;
+
     // 단색 매터리얼 생성
     TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(
         Image::CreateSingleColorImage(4, 4, glm::vec4(0.2f, 0.2f, 0.2f, 1.0f))));
@@ -65,6 +73,8 @@ bool Context::Init()
 void Context::Render()
 {
     RenderIMGUI();
+
+    m_framebuffer->Bind();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
@@ -203,6 +213,17 @@ void Context::Render()
     transform = projection * view * modelTransform;
     m_textureProgram->SetUniform("transform", transform);
     m_plane->Draw(m_textureProgram.get());
+
+    Framebuffer::BindToDefault();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    m_postProgram->Use();
+    m_postProgram->SetUniform("transform",
+                              glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+    m_framebuffer->GetColorAttachment()->Bind();
+    m_postProgram->SetUniform("tex", 0);
+    m_postProgram->SetUniform("gamma", m_gamma);
+    m_plane->Draw(m_postProgram.get());
 }
 
 void Context::RenderIMGUI()
@@ -227,6 +248,8 @@ void Context::RenderIMGUI()
         {
             glClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
         }
+        ImGui::DragFloat("gamma", &m_gamma, 0.01f, 0.0f, 2.0f);
+
         ImGui::Separator();
         ImGui::DragFloat3("camera pos", glm::value_ptr(m_cameraPos), 0.01f);
         ImGui::DragFloat("camera yaw", &m_cameraYaw), 0.5f;
@@ -240,6 +263,10 @@ void Context::RenderIMGUI()
         }
         ImGui::Text("This is first text...");
     }
+
+    float aspectRatio = (float)m_width / m_height;
+    ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(), ImVec2(150 * aspectRatio, 150));
+
     ImGui::End();
 }
 
@@ -272,6 +299,8 @@ void Context::Reshape(int width, int height)
     m_width = width;
     m_height = height;
     glViewport(0, 0, m_width, m_height);
+
+    m_framebuffer = Framebuffer::Create(Texture::Create(width, height, GL_RGBA));
 }
 
 void Context::MouseMove(double x, double y)

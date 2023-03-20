@@ -8,6 +8,7 @@
 #include "vertexLayout.h"
 #include "mesh.h"
 #include "model.h"
+#include "framebuffer.h"
 
 CLASS_PTR(Context)
 class Context
@@ -32,6 +33,9 @@ private:
     MeshUPtr m_box;
     MeshUPtr m_plane;
     TexturePtr m_windowTexture;
+    // framebuffer
+    FramebufferUPtr m_framebuffer;
+    ProgramUPtr m_postProgram;
 
 private:
     // 창 크기
@@ -47,19 +51,6 @@ private:
     glm::vec3 m_cameraUp{glm::vec3(0.0f, 1.0f, 0.0f)};
     bool m_cameraControl{false};
     glm::vec2 m_prevMousePos{glm::vec2(0.0f)};
-
-    std::vector<glm::vec3> cubePositions = {
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(2.0f, 5.0f, -15.0f),
-        glm::vec3(-1.5f, -2.2f, -2.5f),
-        glm::vec3(-3.8f, -2.0f, -12.3f),
-        glm::vec3(2.4f, -0.4f, -3.5f),
-        glm::vec3(-1.7f, 3.0f, -7.5f),
-        glm::vec3(1.3f, -2.0f, -2.5f),
-        glm::vec3(1.5f, 2.0f, -2.5f),
-        glm::vec3(1.5f, 0.2f, -1.5f),
-        glm::vec3(-1.3f, 1.0f, -1.5f),
-    };
 
 private:
     // animation
@@ -82,6 +73,9 @@ private:
     };
     Light m_light;
     bool m_freshLightMode{false}; // 손전등 모드
+
+private:
+    float m_gamma{1.0f};
 
 private:
     MaterialPtr m_planeMaterial;
