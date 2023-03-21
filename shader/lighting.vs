@@ -11,7 +11,7 @@ out vec2 texCoord;
 out vec3 position;
 
 void main() {
-  // local pos
+  // 클립 스페이스 좌표
   gl_Position = transform * vec4(aPos, 1.0); 
   // world 좌표로 변환
   normal = (transpose(inverse(modelTransform)) * vec4(aNormal, 0.0)).xyz;

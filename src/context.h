@@ -36,6 +36,10 @@ private:
     // framebuffer
     FramebufferUPtr m_framebuffer;
     ProgramUPtr m_postProgram;
+    // cubemap
+    CubeTextureUPtr m_cubeTexture;
+    ProgramUPtr m_skyboxProgram;
+    ProgramUPtr m_envMapProgram;
 
 private:
     // 창 크기

@@ -2,6 +2,7 @@
 #include "common.h"
 #include "shader.h"
 
+// Program : 쉐이더 객체 단위
 CLASS_PTR(Program)
 class Program
 {
