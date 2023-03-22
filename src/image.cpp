@@ -7,7 +7,9 @@ ImageUPtr Image::Load(const std::string &filepath, bool flipVertical)
 {
     auto image = ImageUPtr(new Image());
     if (!image->LoadWithStb(filepath, flipVertical))
-        return nullptr;
+    {
+        throw std::string("image load fail - " + filepath);
+    }
     return std::move(image);
 }
 
@@ -61,7 +63,7 @@ void Image::SetCheckImage(int gridX, int gridY)
     }
 }
 
-bool Image::LoadWithStb(const std::string &filepath, bool flipVertical )
+bool Image::LoadWithStb(const std::string &filepath, bool flipVertical)
 {
     stbi_set_flip_vertically_on_load(flipVertical);
 

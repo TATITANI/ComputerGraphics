@@ -9,6 +9,21 @@
 #include "mesh.h"
 #include "model.h"
 #include "framebuffer.h"
+#include "object.h"
+
+using namespace glm;
+struct Camera
+{
+public:
+    glm::mat4 projection;
+    glm::mat4 view;
+    glm::vec3 Pos{glm::vec3(0.0f, 2.0f, 12.0f)};
+    float Pitch{0.0f};
+    float Yaw{0.0f};
+    glm::vec3 Front{glm::vec3(0.0f, 0.0f, -1.0f)};
+    glm::vec3 Up{glm::vec3(0.0f, 1.0f, 0.0f)};
+    bool Control{false};
+};
 
 CLASS_PTR(Context)
 class Context
@@ -26,9 +41,14 @@ private:
     Context() {}
 
     bool Init();
-    ProgramUPtr m_program;
-    ProgramUPtr m_simpleProgram;
-    ProgramUPtr m_textureProgram;
+    void InitShader();
+    void InitMaterial();
+    void UpdateLight(mat4 &projection, mat4 &view);
+
+private:
+    ProgramPtr m_program;
+    ProgramPtr m_simpleProgram;
+    ProgramPtr m_textureProgram;
 
     MeshUPtr m_box;
     MeshUPtr m_plane;
@@ -37,26 +57,24 @@ private:
     FramebufferUPtr m_framebuffer;
     ProgramUPtr m_postProgram;
     // cubemap
-    CubeTextureUPtr m_cubeTexture;
-    ProgramUPtr m_skyboxProgram;
-    ProgramUPtr m_envMapProgram;
+    CubeTextureUPtr m_skyboxTexture;
+    ProgramPtr m_skyboxProgram;
+    ProgramPtr m_envMapProgram;
 
 private:
     // 창 크기
     int m_width{640};
     int m_height{480};
 
-private:
+public:
     // camera parameter
-    float m_cameraPitch{0.0f};
-    float m_cameraYaw{0.0f};
-    glm::vec3 m_cameraPos{glm::vec3(0.0f, 2.0f, 12.0f)};
-    glm::vec3 m_cameraFront{glm::vec3(0.0f, 0.0f, -1.0f)};
-    glm::vec3 m_cameraUp{glm::vec3(0.0f, 1.0f, 0.0f)};
-    bool m_cameraControl{false};
-    glm::vec2 m_prevMousePos{glm::vec2(0.0f)};
 
 private:
+    Camera m_camera;
+
+private:
+    glm::vec2 m_prevMousePos{glm::vec2(0.0f)};
+
     // animation
     bool m_animation{true};
 

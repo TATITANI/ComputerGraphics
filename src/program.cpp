@@ -16,8 +16,7 @@ ProgramUPtr Program::Create(const std::string &vertShaderFilename,
 
     SPDLOG_INFO("vertex shader id: {}", vs->Get());
     SPDLOG_INFO("fragment shader id: {}", fs->Get());
-    if (!vs || !fs)
-        return nullptr;
+
     return std::move(Create({vs, fs}));
 }
 

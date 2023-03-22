@@ -5,7 +5,9 @@ ShaderUPtr Shader::CreateFromFile(const std::string &filename,
 {
     auto shader = ShaderUPtr(new Shader());
     if (!shader->LoadFile(filename, shaderType))
-        return nullptr;
+    {
+        throw std::string("shader load fail - " + filename);
+    }
     return std::move(shader);
 }
 
