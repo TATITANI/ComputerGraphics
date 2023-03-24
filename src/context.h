@@ -4,7 +4,6 @@
 #include "shader.h"
 #include "program.h"
 #include "buffer.h"
-#include "texture.h"
 #include "vertexLayout.h"
 #include "mesh.h"
 #include "model.h"
@@ -12,6 +11,8 @@
 #include "object.h"
 
 using namespace glm;
+using namespace std;
+
 struct Camera
 {
 public:
@@ -29,6 +30,9 @@ CLASS_PTR(Context)
 class Context
 {
 public:
+    Context();
+    ~Context();
+
     static ContextUPtr Create();
     void Render();
     void RenderIMGUI();
@@ -38,20 +42,21 @@ public:
     void MouseButton(int button, int action, double x, double y);
 
 private:
-    Context() {}
-
     bool Init();
     void InitShader();
     void InitMaterial();
+    void InitObject();
+
     void UpdateLight(mat4 &projection, mat4 &view);
+    void UpdateCamera();
 
 private:
     ProgramPtr m_program;
     ProgramPtr m_simpleProgram;
     ProgramPtr m_textureProgram;
 
-    MeshUPtr m_box;
-    MeshUPtr m_plane;
+    MeshPtr m_box;
+    MeshPtr m_plane;
     TexturePtr m_windowTexture;
     // framebuffer
     FramebufferUPtr m_framebuffer;
@@ -61,13 +66,14 @@ private:
     ProgramPtr m_skyboxProgram;
     ProgramPtr m_envMapProgram;
 
+    // grass
+    TexturePtr m_grassTexture;
+    ProgramPtr m_grassProgram;
+
 private:
     // 창 크기
     int m_width{640};
     int m_height{480};
-
-public:
-    // camera parameter
 
 private:
     Camera m_camera;
@@ -103,4 +109,15 @@ private:
     MaterialPtr m_planeMaterial;
     MaterialPtr m_box1Material;
     MaterialPtr m_box2Material;
+
+public:
+    ObjectUPtr objSkybox;
+    ObjectUPtr objGround;
+    ObjectUPtr objBox1;
+    StencilBoxUPtr stencilBox;
+    ObjectUPtr objPlane1;
+    ObjectUPtr objPlane2;
+    ObjectUPtr objPlane3;
+    CubemapUPtr objCubemap;
+    ObjectUPtr objGrass;
 };

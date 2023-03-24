@@ -30,12 +30,21 @@ void Mesh::Init(const std::vector<Vertex> &vertices,
 
 void Mesh::Draw(const Program *program) const
 {
-    m_vertexLayout->Bind();
     if (m_material)
-    {
         m_material->SetToProgram(program);
-    }
+
+    m_vertexLayout->Bind();
     glDrawElements(m_primitiveType, m_indexBuffer->GetCount(), GL_UNSIGNED_INT, 0);
+}
+
+void Mesh::Draw(const Program *program, const VertexLayout *VAO, size_t instanceCnt) const
+{
+    if (m_material)
+        m_material->SetToProgram(program);
+        
+    VAO->Bind();
+    glDrawElementsInstanced(GL_TRIANGLES, m_indexBuffer->GetCount(),
+                            GL_UNSIGNED_INT, 0, instanceCnt);
 }
 
 MeshUPtr Mesh::CreateBox()
@@ -85,19 +94,25 @@ MeshUPtr Mesh::CreateBox()
     return Create(vertices, indices, GL_TRIANGLES);
 }
 
-MeshUPtr Mesh::CreatePlane() {
-  std::vector<Vertex> vertices = {
-    Vertex { glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(0.0f, 0.0f) },
-    Vertex { glm::vec3( 0.5f, -0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(1.0f, 0.0f) },
-    Vertex { glm::vec3( 0.5f,  0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
-    Vertex { glm::vec3(-0.5f,  0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(0.0f, 1.0f) },
-  };
+MeshUPtr Mesh::CreatePlane()
+{
+    std::vector<Vertex> vertices = {
+        Vertex{glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)},
+        Vertex{glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 0.0f)},
+        Vertex{glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 1.0f)},
+        Vertex{glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)},
+    };
 
-  std::vector<uint32_t> indices = {
-    0,  1,  2,  2,  3,  0,
-  };
+    std::vector<uint32_t> indices = {
+        0,
+        1,
+        2,
+        2,
+        3,
+        0,
+    };
 
-  return Create(vertices, indices, GL_TRIANGLES);
+    return Create(vertices, indices, GL_TRIANGLES);
 }
 
 void Material::SetToProgram(const Program *program) const

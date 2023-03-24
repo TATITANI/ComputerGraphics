@@ -1,6 +1,15 @@
 #include "context.h"
 #include "image.h"
 #include <imgui.h>
+#include "texture.h"
+
+Context::Context()
+{
+}
+
+Context::~Context()
+{
+}
 
 ContextUPtr Context::Create()
 {
@@ -16,10 +25,12 @@ bool Context::Init()
     bool isSuccess = true;
     m_box = Mesh::CreateBox();
     m_plane = Mesh::CreatePlane();
+
     try
     {
         InitShader();
         InitMaterial();
+        InitObject();
     }
     catch (std::string strError)
     {
@@ -42,6 +53,8 @@ void Context::InitShader()
 
     m_skyboxProgram = Program::Create("./shader/skybox.vs", "./shader/skybox.fs");
     m_envMapProgram = Program::Create("./shader/env_map.vs", "./shader/env_map.fs");
+
+    m_grassProgram = Program::Create("./shader/grass.vs", "./shader/grass.fs");
 }
 
 void Context::InitMaterial()
@@ -90,6 +103,23 @@ void Context::InitMaterial()
         cubeFront.get(),
         cubeBack.get(),
     });
+
+    m_grassTexture = Texture::CreateFromImage(Image::Load("./image/grass.png"));
+  
+}
+
+void Context::InitObject()
+{
+    objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50)));
+    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), glm::vec3(10.0f, 1.0f, 10.0f)));
+    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f)));
+    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f)));
+    objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1)));
+    objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1)));
+    objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1)));
+    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f)));
+    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1)));
+    objGrass->ActiveInstancing(10000, 3, 3, 1);
 }
 
 void Context::UpdateLight(mat4 &projection, mat4 &view)
@@ -125,14 +155,9 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     m_program->SetUniform("light.specular", m_light.specular);
 }
 
-void Context::Render()
+
+void Context::UpdateCamera()
 {
-    RenderIMGUI();
-    m_framebuffer->Bind();
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-
     m_camera.Front = glm::rotate(glm::mat4(1.0f), glm::radians(m_camera.Yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
                      glm::rotate(glm::mat4(1.0f), glm::radians(m_camera.Pitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
                      glm::vec4(0.0f, 0.0f, -1.0f, 0.0f); // 4차원 성분이 0이면 벡터, 1이면 점
@@ -140,45 +165,50 @@ void Context::Render()
     // 종횡비 4:3, 세로화각 45도의 원근 투영
     m_camera.projection = glm::perspective(glm::radians(45.0f), (float)m_width / (float)m_height, 0.01f, 100.0f);
     m_camera.view = glm::lookAt(m_camera.Pos, m_camera.Pos + m_camera.Front, m_camera.Up);
+}
+
+void Context::Render()
+{
+    RenderIMGUI();
+
+    m_framebuffer->Bind();
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+
+    UpdateCamera();
     UpdateLight(m_camera.projection, m_camera.view);
 
     // skybox
-    Object objSkybox = Object(m_camera.Pos, vec3(1), vec3(50));
-    objSkybox.Render(m_camera, m_box, m_skyboxProgram);
+    objSkybox->Render(m_camera, m_skyboxProgram);
 
     m_program->SetUniform("material.diffuse", 0); // texture slot
     m_program->SetUniform("material.specular", 1);
 
-    Object objGround = Object(vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
-    objGround.Render(m_camera, m_box, m_program, m_planeMaterial);
+    objGround->Render(m_camera, m_program, m_planeMaterial);
 
-    Object objBox1 = Object(vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f));
-    objBox1.Render(m_camera, m_box, m_program, m_box1Material);
+    objBox1->Render(m_camera, m_program, m_box1Material);
 
-    StencilBox stencilBox = StencilBox(vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f));
-    stencilBox.Render(m_camera, m_program, m_simpleProgram, m_box, glm::vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
+    stencilBox->Render(m_camera, m_program, m_simpleProgram, glm::vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
 
     // alpha blend
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glEnable(GL_CULL_FACE);
+    glDisable(GL_CULL_FACE);
     // glCullFace(GL_BACK); // 뒷면 컬링
 
-    m_textureProgram->Use();
     m_windowTexture->Bind();
     m_textureProgram->SetUniform("tex", 0);
 
-    Object objPlane1 = Object(vec3(0, 0.5f, 4.0f), vec3(0), vec3(1));
-    objPlane1.Render(m_camera, m_plane, m_textureProgram);
+    objPlane1->Render(m_camera, m_textureProgram);
+    objPlane2->Render(m_camera, m_textureProgram);
+    objPlane3->Render(m_camera, m_textureProgram);
+    objCubemap->Render(m_camera, m_envMapProgram);
 
-    Object objPlane2 = Object(vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1));
-    objPlane2.Render(m_camera, m_plane, m_textureProgram);
+    m_grassProgram->SetUniform("tex", 0);
+    m_grassTexture->Bind();
+    objGrass->Render(m_camera, m_grassProgram);
 
-    Object objPlane3 = Object(vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1));
-    objPlane3.Render(m_camera, m_plane, m_textureProgram);
-
-    Cubemap objCubemap = Cubemap(vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f));
-    objCubemap.Render(m_camera, m_box, m_envMapProgram);
 
     // post process
     Framebuffer::BindToDefault();

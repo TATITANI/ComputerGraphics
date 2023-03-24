@@ -2,8 +2,8 @@
 
 #include "common.h"
 #include "mesh.h"
-#include "context.h"
 using namespace glm;
+using namespace std;
 
 struct Camera;
 
@@ -16,6 +16,7 @@ protected:
     vec3 scaleVec;
 
 public:
+    Transform(){};
     Transform(vec3 _pos, vec3 _rot, vec3 _scale)
         : pos(_pos), rot(_rot), scaleVec(_scale){};
     ~Transform(){};
@@ -26,28 +27,36 @@ CLASS_PTR(Object)
 class Object
 {
 protected:
+    MeshPtr mesh;
     ProgramPtr program;
 
+    bool isInstance = false;
+    vector<vec3> positions;
+    BufferUPtr posBuffer;
+    VertexLayoutUPtr instanceVAO;
+
 public:
-    Object(vec3 _pos, vec3 _rot, vec3 _scale)
-        : trf(_pos, _rot, _scale){};
+    Object(){};
+    Object(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
+        : mesh(_mesh), trf(_pos, _rot, _scale){};
     ~Object(){};
     Transform trf;
 
+public:
+    virtual void ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDivisor);
     virtual void Update(Camera &cam);
-    virtual void Draw(MeshUPtr &mesh);
+    virtual void Draw();
     virtual void AttatchProgram(ProgramPtr &_program, MaterialPtr mat = nullptr);
 
-    virtual void Render(Camera &cam, MeshUPtr &mesh,
-                        ProgramPtr &_program, MaterialPtr mat = nullptr);
+    virtual void Render(Camera &cam, ProgramPtr &_program, MaterialPtr mat = nullptr);
 };
 
 CLASS_PTR(Cubemap)
 class Cubemap : public Object
 {
 public:
-    Cubemap(vec3 _pos, vec3 _rot, vec3 _scale)
-        : Object(_pos, _rot, _scale){};
+    Cubemap(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
+        : Object(_mesh, _pos, _rot, _scale){};
     ~Cubemap(){};
 
     virtual void Update(Camera &cam) override;
@@ -58,18 +67,19 @@ class StencilBox
 {
 private:
     Object obj;
+    MeshPtr mesh;
     ProgramPtr outlineProgram;
-    mat4 localTrf;
+    mat4 trf;
 
     void Update(Camera &cam);
-    void Draw(MeshUPtr &mesh, vec4 &color, float outlineSize);
+    void Draw(vec4 &color, float outlineSize);
     void AttatchProgram(ProgramPtr &_objPgm, ProgramPtr &_outlinePgm);
 
 public:
-    StencilBox(vec3 _pos, vec3 _rot, vec3 _scale)
-        : obj(_pos, _rot, _scale){};
+    StencilBox(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
+        : mesh(_mesh), obj(_mesh, _pos, _rot, _scale){};
     ~StencilBox(){};
 
     void Render(Camera &cam, ProgramPtr &_objPgm, ProgramPtr &_outlinePgm,
-                MeshUPtr &mesh, vec4 &color, float outlineSize);
+                vec4 &color, float outlineSize);
 };

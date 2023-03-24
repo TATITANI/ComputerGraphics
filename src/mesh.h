@@ -42,28 +42,27 @@ public:
     static MeshUPtr CreatePlane();
     static MeshUPtr MakeBox();
 
-    const VertexLayout *GetVertexLayout() const
-    {
-        return m_vertexLayout.get();
-    }
-    BufferPtr GetVertexBuffer() const { return m_vertexBuffer; }
-    BufferPtr GetIndexBuffer() const { return m_indexBuffer; }
+    const VertexLayout *GetVertexLayout()
+        const { return m_vertexLayout.get(); }
+
+    void BindVertexBuffer() { m_vertexBuffer->Bind(); }
+    void BindIndexBuffer() { m_indexBuffer->Bind(); }
 
     void SetMaterial(MaterialPtr material) { m_material = material; }
     MaterialPtr GetMaterial() const { return m_material; }
 
     void Draw(const Program *program) const;
+    void Draw(const Program *program, const VertexLayout *VAO, size_t instanceCnt) const;
 
 private:
     Mesh() {}
-    void Init(
-        const std::vector<Vertex> &vertices,
-        const std::vector<uint32_t> &indices,
-        uint32_t primitiveType);
+    void Init(const std::vector<Vertex> &vertices,
+              const std::vector<uint32_t> &indices,
+              uint32_t primitiveType);
 
     uint32_t m_primitiveType{GL_TRIANGLES};
-    VertexLayoutUPtr m_vertexLayout; // VAO는 메시당 하나만 사용하므로 unique ptr
-    BufferPtr m_vertexBuffer;        // vbo ibo는 vao에 연결하여 재사용할 수 있게 shared ptr
-    BufferPtr m_indexBuffer;
+    VertexLayoutUPtr m_vertexLayout; // VAO
+    BufferUPtr m_vertexBuffer;       // VBO
+    BufferUPtr m_indexBuffer;        // IBO
     MaterialPtr m_material;
 };
