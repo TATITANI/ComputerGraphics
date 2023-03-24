@@ -21,6 +21,7 @@ ContextUPtr Context::Create()
 
 bool Context::Init()
 {
+    glEnable(GL_MULTISAMPLE);
     glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
     bool isSuccess = true;
     m_box = Mesh::CreateBox();
@@ -171,7 +172,7 @@ void Context::Render()
 {
     RenderIMGUI();
 
-    m_framebuffer->Bind();
+    // m_framebuffer->Bind();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
@@ -209,18 +210,17 @@ void Context::Render()
     m_grassTexture->Bind();
     objGrass->Render(m_camera, m_grassProgram);
 
-
     // post process
-    Framebuffer::BindToDefault();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    // Framebuffer::BindToDefault();
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    m_postProgram->Use();
-    m_postProgram->SetUniform("transform",
-                              glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
-    m_framebuffer->GetColorAttachment()->Bind();
-    m_postProgram->SetUniform("tex", 0);
-    m_postProgram->SetUniform("gamma", m_gamma);
-    m_plane->Draw(m_postProgram.get());
+    // m_postProgram->Use();
+    // m_postProgram->SetUniform("transform",
+    //                           glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+    // m_framebuffer->GetColorAttachment()->Bind();
+    // m_postProgram->SetUniform("tex", 0);
+    // m_postProgram->SetUniform("gamma", m_gamma);
+    // m_plane->Draw(m_postProgram.get());
 }
 
 void Context::RenderIMGUI()
