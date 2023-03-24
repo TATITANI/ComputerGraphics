@@ -74,7 +74,7 @@ void Context::InitMaterial()
     m_planeMaterial->diffuse = Texture::CreateFromImage(ImagePtr(
         Image::Load("./image/marble.jpg")));
     m_planeMaterial->specular = grayTexture;
-    m_planeMaterial->shininess = 128.0f;
+    m_planeMaterial->shininess = 4.0f;
 
     m_box1Material = Material::Create();
     m_box1Material->diffuse = Texture::CreateFromImage(ImagePtr(
@@ -106,7 +106,6 @@ void Context::InitMaterial()
     });
 
     m_grassTexture = Texture::CreateFromImage(Image::Load("./image/grass.png"));
-  
 }
 
 void Context::InitObject()
@@ -154,8 +153,8 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     m_program->SetUniform("light.ambient", m_light.ambient);
     m_program->SetUniform("light.diffuse", m_light.diffuse);
     m_program->SetUniform("light.specular", m_light.specular);
+    m_program->SetUniform("blinn", (m_blinn ? 1 : 0));
 }
-
 
 void Context::UpdateCamera()
 {
@@ -208,7 +207,7 @@ void Context::Render()
 
     m_grassProgram->SetUniform("tex", 0);
     m_grassTexture->Bind();
-    objGrass->Render(m_camera, m_grassProgram);
+    // objGrass->Render(m_camera, m_grassProgram);
 
     // post process
     // Framebuffer::BindToDefault();
@@ -237,6 +236,7 @@ void Context::RenderIMGUI()
             ImGui::ColorEdit3("l.diffuse", glm::value_ptr(m_light.diffuse));
             ImGui::ColorEdit3("l.specular", glm::value_ptr(m_light.specular));
             ImGui::Checkbox("flash light", &m_freshLightMode);
+            ImGui::Checkbox("l.blinn", &m_blinn);
         }
 
         ImGui::Checkbox("animation", &m_animation);

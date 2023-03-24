@@ -101,6 +101,8 @@ private:
     };
     Light m_light;
     bool m_freshLightMode{false}; // 손전등 모드
+    bool m_blinn{false};
+
 
 private:
     float m_gamma{1.0f};

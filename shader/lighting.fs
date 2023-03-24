@@ -16,6 +16,7 @@ struct Light {
     vec3 specular;
 };
 uniform Light light;
+uniform int blinn;
  
 struct Material {
     sampler2D diffuse;
@@ -50,11 +51,20 @@ void main() {
         vec3 diffuse = diff * texColor * light.diffuse;
 
         // specular(정반사) : 반사각이 큰 빛일수록 희미해짐
-        vec3 specColor = texture2D(material.specular, texCoord).xyz;
-        vec3 viewDir = normalize(viewPos - position);
-        vec3 reflectDir = reflect(-lightDir, pixelNorm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-        vec3 specular = spec * specColor * light.specular;
+ 
+    vec3 specColor = texture2D(material.specular, texCoord).xyz;
+    float spec = 0.0;
+    if (blinn == 0) {
+      vec3 viewDir = normalize(viewPos - position);
+      vec3 reflectDir = reflect(-lightDir, pixelNorm);
+      spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    }
+    else {
+      vec3 viewDir = normalize(viewPos - position);
+      vec3 halfDir = normalize(lightDir + viewDir);
+      spec = pow(max(dot(halfDir, pixelNorm), 0.0), material.shininess);
+    }
+    vec3 specular = spec * specColor * light.specular;
 
         result += (diffuse + specular) * intensity;
     }
