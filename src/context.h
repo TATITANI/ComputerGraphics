@@ -9,6 +9,7 @@
 #include "model.h"
 #include "framebuffer.h"
 #include "object.h"
+#include "shadowmap.h"
 
 using namespace glm;
 using namespace std;
@@ -16,13 +17,13 @@ using namespace std;
 struct Camera
 {
 public:
-    glm::mat4 projection;
-    glm::mat4 view;
-    glm::vec3 Pos{glm::vec3(0.0f, 2.0f, 12.0f)};
+    mat4 projection;
+    mat4 view;
+    vec3 Pos{vec3(0.0f, 2.0f, 12.0f)};
     float Pitch{0.0f};
     float Yaw{0.0f};
-    glm::vec3 Front{glm::vec3(0.0f, 0.0f, -1.0f)};
-    glm::vec3 Up{glm::vec3(0.0f, 1.0f, 0.0f)};
+    vec3 Front{vec3(0.0f, 0.0f, -1.0f)};
+    vec3 Up{vec3(0.0f, 1.0f, 0.0f)};
     bool Control{false};
 };
 
@@ -49,11 +50,18 @@ private:
 
     void UpdateLight(mat4 &projection, mat4 &view);
     void UpdateCamera();
+    void DrawShadowedObjects(const mat4 &view, const mat4 &projection,
+                   const ProgramPtr &optionProgram );
+    void DrawShadowedObjects(const Camera &cam,
+                   const ProgramPtr &optionProgram );
+
+    void GenerateShadowMap();
 
 private:
     ProgramPtr m_program;
     ProgramPtr m_simpleProgram;
     ProgramPtr m_textureProgram;
+    ProgramPtr m_lightingShadowProgram;
 
     MeshPtr m_box;
     MeshPtr m_plane;
@@ -70,6 +78,9 @@ private:
     TexturePtr m_grassTexture;
     ProgramPtr m_grassProgram;
 
+    // shadow map
+    ShadowMapUPtr m_shadowMap;
+
 private:
     // 창 크기
     int m_width{640};
@@ -79,30 +90,30 @@ private:
     Camera m_camera;
 
 private:
-    glm::vec2 m_prevMousePos{glm::vec2(0.0f)};
+    vec2 m_prevMousePos{vec2(0.0f)};
 
     // animation
     bool m_animation{true};
 
     // clear color
-    glm::vec4 m_clearColor{glm::vec4(0.1f, 0.2f, 0.3f, 0.0f)};
+    vec4 m_clearColor{vec4(0.1f, 0.2f, 0.3f, 0.0f)};
 
     // light parameter
     struct Light
     {
-        glm::vec3 position{glm::vec3(1.0f, 4.0f, 4.0f)};
-        glm::vec3 direction{glm::vec3(-1.0f, -1.0f, -1.0f)};
+        bool directional{false};
+        vec3 position{vec3(2.0f, 4.0f, 4.0f)};
+        vec3 direction{vec3(-0.5f, -1.5f, -1.0f)};
         // inner cut-off angle, offset angle
-        glm::vec2 cutoff{glm::vec2(120.0f, 5.0f)};
-        float distance{120.0f};
-        glm::vec3 ambient{glm::vec3(0.1f, 0.1f, 0.1f)};
-        glm::vec3 diffuse{glm::vec3(0.5f, 0.5f, 0.5f)};
-        glm::vec3 specular{glm::vec3(1.0f, 1.0f, 1.0f)};
+        vec2 cutoff{vec2(50.0f, 5.0f)};
+        float distance{150.0f};
+        vec3 ambient{vec3(0.1f, 0.1f, 0.1f)};
+        vec3 diffuse{vec3(0.5f, 0.5f, 0.5f)};
+        vec3 specular{vec3(1.0f, 1.0f, 1.0f)};
     };
     Light m_light;
     bool m_freshLightMode{false}; // 손전등 모드
-    bool m_blinn{false};
-
+    bool m_blinn{true};
 
 private:
     float m_gamma{1.0f};

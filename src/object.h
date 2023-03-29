@@ -26,9 +26,13 @@ public:
 CLASS_PTR(Object)
 class Object
 {
+private:
+    friend class StencilBox;
+
 protected:
     MeshPtr mesh;
-    ProgramPtr program;
+    ProgramPtr defaultProgram;
+    ProgramPtr currentProgram;
 
     bool isInstance = false;
     vector<vec3> positions;
@@ -37,29 +41,36 @@ protected:
 
 public:
     Object(){};
-    Object(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
-        : mesh(_mesh), trf(_pos, _rot, _scale){};
+    Object(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale, const ProgramPtr &pgm)
+        : mesh(_mesh), trf(_pos, _rot, _scale), defaultProgram(pgm), currentProgram(pgm){};
     ~Object(){};
     Transform trf;
 
 public:
     virtual void ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDivisor);
-    virtual void Update(Camera &cam);
+    virtual void Update(const Camera &cam);
+    virtual void Update(const mat4 &view, const mat4 &projection);
     virtual void Draw();
-    virtual void AttatchProgram(ProgramPtr &_program, MaterialPtr mat = nullptr);
+    void UseProgram(const ProgramPtr &_program, const MaterialPtr &mat = nullptr);
+    void UseProgram(const MaterialPtr &mat = nullptr);
 
-    virtual void Render(Camera &cam, ProgramPtr &_program, MaterialPtr mat = nullptr);
+    virtual void Render(const Camera &cam, const MaterialPtr &mat = nullptr,
+                        const ProgramPtr &optionPgm = nullptr);
+    virtual void Render(const mat4 &view, const mat4 &projection,
+                        const MaterialPtr &mat = nullptr, const ProgramPtr &optionPgm = nullptr);
 };
 
 CLASS_PTR(Cubemap)
 class Cubemap : public Object
 {
 public:
-    Cubemap(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
-        : Object(_mesh, _pos, _rot, _scale){};
+    Cubemap(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale, const ProgramPtr &pgm)
+        : Object(_mesh, _pos, _rot, _scale, pgm){};
     ~Cubemap(){};
 
-    virtual void Update(Camera &cam) override;
+    virtual void Render(const Camera &cam, const MaterialPtr &mat = nullptr,
+                        const ProgramPtr &optionPgm = nullptr) override;
+    virtual void Update(const Camera &cam) override;
 };
 
 CLASS_PTR(StencilBox)
@@ -71,15 +82,18 @@ private:
     ProgramPtr outlineProgram;
     mat4 trf;
 
-    void Update(Camera &cam);
+    void Update(const mat4 &view, const mat4 &projection);
     void Draw(vec4 &color, float outlineSize);
-    void AttatchProgram(ProgramPtr &_objPgm, ProgramPtr &_outlinePgm);
+    void UseProgram(const ProgramPtr &optionPgm, const ProgramPtr &_outlinePgm);
 
 public:
-    StencilBox(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale)
-        : mesh(_mesh), obj(_mesh, _pos, _rot, _scale){};
+    StencilBox(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale, const ProgramPtr &pgm)
+        : mesh(_mesh), obj(_mesh, _pos, _rot, _scale, pgm){};
     ~StencilBox(){};
 
-    void Render(Camera &cam, ProgramPtr &_objPgm, ProgramPtr &_outlinePgm,
+    void Render(const Camera &cam, const ProgramPtr &optionPgm, ProgramPtr &_outlinePgm,
                 vec4 &color, float outlineSize);
+
+    void Render(const mat4 &view, const mat4 &projection, const ProgramPtr &optionPgm,
+                ProgramPtr &_outlinePgm, vec4 &color, float outlineSize);
 };

@@ -32,7 +32,7 @@ void Object::ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDi
                            offsetof(Vertex, texCoord));
 
     posBuffer = Buffer::CreateWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW,
-                                       positions.data(), sizeof(glm::vec3), positions.size());
+                                    positions.data(), sizeof(glm::vec3), positions.size());
     posBuffer->Bind();
     instanceVAO->SetAttrib(atbIndex, atbCount, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
     // index번 Attribute는 인스턴스가 divisor번 바뀔때마다 변경
@@ -40,51 +40,73 @@ void Object::ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDi
     mesh->BindIndexBuffer();
 }
 
-void Object::Update(Camera &cam)
+void Object::Update(const Camera &cam)
 {
-    auto modelTransform = trf.GetTransform();
-    auto transform = cam.projection * cam.view * modelTransform;
-    program->SetUniform("transform", transform);
-    program->SetUniform("modelTransform", modelTransform);
+    Update(cam.view, cam.projection);
+}
+
+void Object::Update(const mat4 &view, const mat4 &projection)
+{
+    auto modelTransform = trf.GetTransform(); // world
+    auto transform = projection * view * modelTransform; // clip space
+    currentProgram->SetUniform("transform", transform);
+    currentProgram->SetUniform("modelTransform", modelTransform);
 }
 
 void Object::Draw()
 {
     if (isInstance)
-        mesh->Draw(program.get(), instanceVAO.get(), posBuffer->GetCount());
+        mesh->Draw(currentProgram.get(), instanceVAO.get(), posBuffer->GetCount());
     else
-        mesh->Draw(program.get());
+        mesh->Draw(currentProgram.get());
 }
 
-void Object::AttatchProgram(ProgramPtr &_program, MaterialPtr mat)
+void Object::UseProgram(const ProgramPtr &_program, const MaterialPtr &mat)
 {
-    program = _program;
-    program->Use();
-
+    currentProgram = _program;
+    _program->Use();
     if (mat)
-        mat->SetToProgram(program.get());
+        mat->SetToProgram(_program.get());
 }
 
-void Object::Render(Camera &cam, ProgramPtr &_program, MaterialPtr mat)
+void Object::UseProgram(const MaterialPtr &mat)
 {
-    AttatchProgram(_program, mat);
+    UseProgram(this->defaultProgram, mat);
+}
+
+void Object::Render(const Camera &cam, const MaterialPtr &mat, const ProgramPtr &optionPgm)
+{
+    Render(cam.view, cam.projection, mat, optionPgm);
+}
+
+void Object::Render(const mat4 &view, const mat4 &projection,
+                    const MaterialPtr &mat, const ProgramPtr &optionPgm)
+{
+    UseProgram(optionPgm ? optionPgm : defaultProgram, mat);
+    Update(view, projection);
+    Draw();
+}
+
+void Cubemap::Render(const Camera &cam, const MaterialPtr &mat, const ProgramPtr &optionPgm)
+{
+    UseProgram(optionPgm ? optionPgm : defaultProgram, mat);
     Update(cam);
     Draw();
 }
 
-void Cubemap::Update(Camera &cam)
+void Cubemap::Update(const Camera &cam)
 {
-    program->SetUniform("model", trf.GetTransform());
-    program->SetUniform("view", cam.view);
-    program->SetUniform("projection", cam.projection);
-    program->SetUniform("cameraPos", cam.Pos);
-    program->SetUniform("skybox", 0);
+    currentProgram->SetUniform("model", trf.GetTransform());
+    currentProgram->SetUniform("view", cam.view);
+    currentProgram->SetUniform("projection", cam.projection);
+    currentProgram->SetUniform("cameraPos", cam.Pos);
+    currentProgram->SetUniform("skybox", 0);
 }
 
-void StencilBox::Update(Camera &cam)
+void StencilBox::Update(const mat4 &view, const mat4 &projection)
 {
-    obj.Update(cam);
-    trf = cam.projection * cam.view * obj.trf.GetTransform();
+    obj.Update(view, projection);
+    trf = projection * view * obj.trf.GetTransform();
 }
 
 void StencilBox::Draw(vec4 &color, float outlineSize)
@@ -113,16 +135,23 @@ void StencilBox::Draw(vec4 &color, float outlineSize)
     glStencilMask(0xFF);
 }
 
-void StencilBox::AttatchProgram(ProgramPtr &_objPgm, ProgramPtr &_outlinePgm)
+void StencilBox::UseProgram(const ProgramPtr &optionPgm, const ProgramPtr &_outlinePgm)
 {
-    obj.AttatchProgram(_objPgm);
+    obj.UseProgram(optionPgm ? optionPgm : obj.defaultProgram);
     outlineProgram = _outlinePgm;
 }
 
-void StencilBox::Render(Camera &cam, ProgramPtr &_objPgm, ProgramPtr &_outlinePgm,
+void StencilBox::Render(const Camera &cam, const ProgramPtr &optionPgm, ProgramPtr &_outlinePgm,
                         vec4 &color, float outlineSize)
 {
-    AttatchProgram(_objPgm, _outlinePgm);
-    Update(cam);
+    Render(cam.view, cam.projection, optionPgm, _outlinePgm,
+           color, outlineSize);
+}
+
+void StencilBox::Render(const mat4 &view, const mat4 &projection, const ProgramPtr &optionPgm,
+                        ProgramPtr &_outlinePgm, vec4 &color, float outlineSize)
+{
+    UseProgram(optionPgm, _outlinePgm);
+    Update(view, projection);
     Draw(color, outlineSize);
 }

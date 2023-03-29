@@ -56,16 +56,17 @@ void Context::InitShader()
     m_envMapProgram = Program::Create("./shader/env_map.vs", "./shader/env_map.fs");
 
     m_grassProgram = Program::Create("./shader/grass.vs", "./shader/grass.fs");
+    m_lightingShadowProgram = Program::Create("./shader/lighting_shadow.vs", "./shader/lighting_shadow.fs");
 }
 
 void Context::InitMaterial()
 {
     // 단색 매터리얼 생성
     TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(
-        Image::CreateSingleColorImage(4, 4, glm::vec4(0.2f, 0.2f, 0.2f, 1.0f))));
+        Image::CreateSingleColorImage(4, 4, vec4(0.2f, 0.2f, 0.2f, 1.0f))));
 
     TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(
-        Image::CreateSingleColorImage(4, 4, glm::vec4(0.5f, 0.5f, 0.5f, 1.0f))));
+        Image::CreateSingleColorImage(4, 4, vec4(0.5f, 0.5f, 0.5f, 1.0f))));
 
     m_windowTexture = Texture::CreateFromImage(ImagePtr(
         Image::Load("./image/blending_transparent_window.png")));
@@ -106,26 +107,27 @@ void Context::InitMaterial()
     });
 
     m_grassTexture = Texture::CreateFromImage(Image::Load("./image/grass.png"));
+    m_shadowMap = ShadowMap::Create(1024, 1024);
 }
 
 void Context::InitObject()
 {
-    objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50)));
-    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), glm::vec3(10.0f, 1.0f, 10.0f)));
-    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f)));
-    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f)));
-    objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1)));
-    objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1)));
-    objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1)));
-    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f)));
-    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1)));
+    objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50), m_skyboxProgram));
+    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(40.0f, 1.0f, 40.0f), m_program));
+    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_program));
+    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f), m_program));
+    objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1), m_textureProgram));
+    objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1), m_textureProgram));
+    objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1), m_textureProgram));
+    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f), m_envMapProgram));
+    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassProgram));
     objGrass->ActiveInstancing(10000, 3, 3, 1);
 }
 
 void Context::UpdateLight(mat4 &projection, mat4 &view)
 {
-    glm::vec3 lightPos = m_light.position;
-    glm::vec3 lightDir = m_light.direction;
+    vec3 lightPos = m_light.position;
+    vec3 lightDir = m_light.direction;
     if (m_freshLightMode)
     {
         lightPos = m_camera.Pos;
@@ -134,11 +136,11 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     else
     {
         // 광원
-        auto lightModelTransform = glm::translate(glm::mat4(1.0), m_light.position) *
-                                   glm::scale(glm::mat4(1.0), glm::vec3(0.1f));
+        auto lightModelTransform = translate(mat4(1.0), m_light.position) *
+                                   scale(mat4(1.0), vec3(0.1f));
 
         m_simpleProgram->Use();
-        m_simpleProgram->SetUniform("color", glm::vec4(m_light.ambient + m_light.diffuse, 1.0f));
+        m_simpleProgram->SetUniform("color", vec4(m_light.ambient + m_light.diffuse, 1.0f));
         m_simpleProgram->SetUniform("transform", projection * view * lightModelTransform);
         m_box->Draw(m_simpleProgram.get());
     }
@@ -147,24 +149,91 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     m_program->SetUniform("viewPos", m_camera.Pos);
     m_program->SetUniform("light.position", lightPos);
     m_program->SetUniform("light.direction", lightDir);
-    m_program->SetUniform("light.cutoff", glm::vec2(cosf(glm::radians(m_light.cutoff[0])),
-                                                    cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+    m_program->SetUniform("light.cutoff", vec2(cosf(radians(m_light.cutoff[0])),
+                                               cosf(radians(m_light.cutoff[0] + m_light.cutoff[1]))));
     m_program->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
     m_program->SetUniform("light.ambient", m_light.ambient);
     m_program->SetUniform("light.diffuse", m_light.diffuse);
     m_program->SetUniform("light.specular", m_light.specular);
     m_program->SetUniform("blinn", (m_blinn ? 1 : 0));
+
+    m_program->SetUniform("material.diffuse", 0); // texture slot
+    m_program->SetUniform("material.specular", 1);
+
+    //
+
+    m_lightingShadowProgram->SetUniform("material.diffuse", 0); // texture slot
+    m_lightingShadowProgram->SetUniform("material.specular", 1);
 }
 
 void Context::UpdateCamera()
 {
-    m_camera.Front = glm::rotate(glm::mat4(1.0f), glm::radians(m_camera.Yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
-                     glm::rotate(glm::mat4(1.0f), glm::radians(m_camera.Pitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
-                     glm::vec4(0.0f, 0.0f, -1.0f, 0.0f); // 4차원 성분이 0이면 벡터, 1이면 점
+    m_camera.Front = rotate(mat4(1.0f), radians(m_camera.Yaw), vec3(0.0f, 1.0f, 0.0f)) *
+                     rotate(mat4(1.0f), radians(m_camera.Pitch), vec3(1.0f, 0.0f, 0.0f)) *
+                     vec4(0.0f, 0.0f, -1.0f, 0.0f); // 4차원 성분이 0이면 벡터, 1이면 점
 
     // 종횡비 4:3, 세로화각 45도의 원근 투영
-    m_camera.projection = glm::perspective(glm::radians(45.0f), (float)m_width / (float)m_height, 0.01f, 100.0f);
-    m_camera.view = glm::lookAt(m_camera.Pos, m_camera.Pos + m_camera.Front, m_camera.Up);
+    m_camera.projection = perspective(radians(45.0f), (float)m_width / (float)m_height, 0.01f, 100.0f);
+    m_camera.view = lookAt(m_camera.Pos, m_camera.Pos + m_camera.Front, m_camera.Up);
+}
+
+void Context::DrawShadowedObjects(const mat4 &view, const mat4 &projection, const ProgramPtr &optionProgram)
+{
+
+    objGround->Render(view, projection, m_planeMaterial, optionProgram);
+    objBox1->Render(view, projection, m_box1Material, optionProgram);
+
+    stencilBox->Render(view, projection, optionProgram,
+                       m_simpleProgram, vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
+}
+
+void Context::DrawShadowedObjects(const Camera &cam, const ProgramPtr &program)
+{
+    DrawShadowedObjects(cam.view, cam.projection, program);
+}
+
+void Context::GenerateShadowMap()
+{
+    auto lightView = lookAt(m_light.position,
+                            m_light.position + m_light.direction,
+                            vec3(0.0f, 1.0f, 0.0f));
+
+    auto lightProjection = m_light.directional ? ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f)
+                                               : perspective(radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f), 1.0f, 1.0f, 20.0f);
+
+    m_shadowMap->Bind();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0,
+               m_shadowMap->GetShadowMap()->GetWidth(),
+               m_shadowMap->GetShadowMap()->GetHeight());
+    m_simpleProgram->Use();
+    m_simpleProgram->SetUniform("color", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    // 광원에서 shadow depth map을 그림
+    DrawShadowedObjects(lightView, lightProjection, m_simpleProgram);
+
+    Framebuffer::BindToDefault();
+    glViewport(0, 0, m_width, m_height);
+
+    m_lightingShadowProgram->Use();
+    m_lightingShadowProgram->SetUniform("viewPos", m_camera.Pos);
+    m_lightingShadowProgram->SetUniform("light.directional", m_light.directional ? 1 : 0);
+    m_lightingShadowProgram->SetUniform("light.position", m_light.position);
+    m_lightingShadowProgram->SetUniform("light.direction", m_light.direction);
+    m_lightingShadowProgram->SetUniform("light.cutoff", vec2(
+                                                            cosf(radians(m_light.cutoff[0])),
+                                                            cosf(radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+    m_lightingShadowProgram->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+    m_lightingShadowProgram->SetUniform("light.ambient", m_light.ambient);
+    m_lightingShadowProgram->SetUniform("light.diffuse", m_light.diffuse);
+    m_lightingShadowProgram->SetUniform("light.specular", m_light.specular);
+    m_lightingShadowProgram->SetUniform("blinn", (m_blinn ? 1 : 0));
+    m_lightingShadowProgram->SetUniform("lightTransform", lightProjection * lightView);
+    glActiveTexture(GL_TEXTURE3);
+    m_shadowMap->GetShadowMap()->Bind();
+    m_lightingShadowProgram->SetUniform("shadowMap", 3);
+    glActiveTexture(GL_TEXTURE0);
+
+    DrawShadowedObjects(m_camera, m_lightingShadowProgram);
 }
 
 void Context::Render()
@@ -179,47 +248,37 @@ void Context::Render()
     UpdateCamera();
     UpdateLight(m_camera.projection, m_camera.view);
 
-    // skybox
-    objSkybox->Render(m_camera, m_skyboxProgram);
-
-    m_program->SetUniform("material.diffuse", 0); // texture slot
-    m_program->SetUniform("material.specular", 1);
-
-    objGround->Render(m_camera, m_program, m_planeMaterial);
-
-    objBox1->Render(m_camera, m_program, m_box1Material);
-
-    stencilBox->Render(m_camera, m_program, m_simpleProgram, glm::vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
+    objSkybox->Render(m_camera.view, m_camera.projection);
+    GenerateShadowMap();
 
     // alpha blend
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_CULL_FACE);
     // glCullFace(GL_BACK); // 뒷면 컬링
-
     m_windowTexture->Bind();
     m_textureProgram->SetUniform("tex", 0);
+    objPlane1->Render(m_camera, nullptr);
+    objPlane2->Render(m_camera, nullptr);
+    objPlane3->Render(m_camera, nullptr);
 
-    objPlane1->Render(m_camera, m_textureProgram);
-    objPlane2->Render(m_camera, m_textureProgram);
-    objPlane3->Render(m_camera, m_textureProgram);
-    objCubemap->Render(m_camera, m_envMapProgram);
+    objCubemap->Render(m_camera, nullptr);
 
     m_grassProgram->SetUniform("tex", 0);
     m_grassTexture->Bind();
-    // objGrass->Render(m_camera, m_grassProgram);
+    objGrass->Render(m_camera, nullptr);
 
-    // post process
+    //// post process
     // Framebuffer::BindToDefault();
     // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    // m_postProgram->Use();
-    // m_postProgram->SetUniform("transform",
-    //                           glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
-    // m_framebuffer->GetColorAttachment()->Bind();
-    // m_postProgram->SetUniform("tex", 0);
-    // m_postProgram->SetUniform("gamma", m_gamma);
-    // m_plane->Draw(m_postProgram.get());
+    //// m_postProgram->Use();
+    //// m_postProgram->SetUniform("transform",
+    ////                           scale(mat4(1.0f), vec3(2.0f, 2.0f, 1.0f)));
+    //// m_framebuffer->GetColorAttachment()->Bind();
+    //// m_postProgram->SetUniform("tex", 0);
+    //// m_postProgram->SetUniform("gamma", m_gamma);
+    //// m_plane->Draw(m_postProgram.get());
 }
 
 void Context::RenderIMGUI()
@@ -228,27 +287,28 @@ void Context::RenderIMGUI()
     {
         if (ImGui::CollapsingHeader("light", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::DragFloat3("l.position", glm::value_ptr(m_light.position), 0.01f);
-            ImGui::DragFloat3("l.direction", glm::value_ptr(m_light.direction), 0.01f);
+            ImGui::Checkbox("l.directional", &m_light.directional);
+            ImGui::DragFloat3("l.position", value_ptr(m_light.position), 0.01f);
+            ImGui::DragFloat3("l.direction", value_ptr(m_light.direction), 0.01f);
             ImGui::DragFloat("l.distance", &m_light.distance, 0.5f, 0, 3000.0f);
-            ImGui::DragFloat2("l.cutoff", glm::value_ptr(m_light.cutoff), 0.5f, 0, 180.0f);
-            ImGui::ColorEdit3("l.ambient", glm::value_ptr(m_light.ambient));
-            ImGui::ColorEdit3("l.diffuse", glm::value_ptr(m_light.diffuse));
-            ImGui::ColorEdit3("l.specular", glm::value_ptr(m_light.specular));
+            ImGui::DragFloat2("l.cutoff", value_ptr(m_light.cutoff), 0.5f, 0, 180.0f);
+            ImGui::ColorEdit3("l.ambient", value_ptr(m_light.ambient));
+            ImGui::ColorEdit3("l.diffuse", value_ptr(m_light.diffuse));
+            ImGui::ColorEdit3("l.specular", value_ptr(m_light.specular));
             ImGui::Checkbox("flash light", &m_freshLightMode);
             ImGui::Checkbox("l.blinn", &m_blinn);
         }
 
         ImGui::Checkbox("animation", &m_animation);
 
-        if (ImGui::ColorEdit4("clear color", glm::value_ptr(m_clearColor)))
+        if (ImGui::ColorEdit4("clear color", value_ptr(m_clearColor)))
         {
             glClearColor(m_clearColor.x, m_clearColor.y, m_clearColor.z, m_clearColor.w);
         }
         ImGui::DragFloat("gamma", &m_gamma, 0.01f, 0.0f, 2.0f);
 
         ImGui::Separator();
-        ImGui::DragFloat3("camera pos", glm::value_ptr(m_camera.Pos), 0.01f);
+        ImGui::DragFloat3("camera pos", value_ptr(m_camera.Pos), 0.01f);
         ImGui::DragFloat("camera yaw", &m_camera.Yaw), 0.5f;
         ImGui::DragFloat("camera pitch", &m_camera.Pitch, 0.5f, -89, 89);
         ImGui::Separator();
@@ -256,14 +316,16 @@ void Context::RenderIMGUI()
         {
             m_camera.Yaw = 0;
             m_camera.Pitch = 0;
-            m_camera.Pos = glm::vec3(0, 0, 3);
+            m_camera.Pos = vec3(0, 0, 3);
         }
         ImGui::Text("This is first text...");
     }
 
     float aspectRatio = (float)m_width / m_height;
-    ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(), ImVec2(150 * aspectRatio, 150));
-
+    // ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(),
+    //              ImVec2(150 * aspectRatio, 150));
+    ImGui::Image((ImTextureID)m_shadowMap->GetShadowMap()->Get(),
+                 ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
     ImGui::End();
 }
 
@@ -278,13 +340,13 @@ void Context::ProcessInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         m_camera.Pos -= cameraSpeed * m_camera.Front;
 
-    auto cameraRight = glm::normalize(glm::cross(m_camera.Up, -m_camera.Front));
+    auto cameraRight = normalize(cross(m_camera.Up, -m_camera.Front));
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         m_camera.Pos += cameraSpeed * cameraRight;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         m_camera.Pos -= cameraSpeed * cameraRight;
 
-    auto cameraUp = glm::normalize(glm::cross(-m_camera.Front, cameraRight));
+    auto cameraUp = normalize(cross(-m_camera.Front, cameraRight));
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         m_camera.Pos += cameraSpeed * cameraUp;
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
@@ -305,8 +367,8 @@ void Context::MouseMove(double x, double y)
     if (!m_camera.Control)
         return;
 
-    static glm::vec2 prevPos = glm::vec2((float)x, (float)y);
-    auto pos = glm::vec2((float)x, (float)y);
+    static vec2 prevPos = vec2((float)x, (float)y);
+    auto pos = vec2((float)x, (float)y);
     auto deltaPos = pos - prevPos;
 
     const float cameraRotSpeed = 0.5f;
@@ -333,7 +395,7 @@ void Context::MouseButton(int button, int action, double x, double y)
         if (action == GLFW_PRESS)
         {
             // 마우스 조작 시작 시점에 현재 마우스 커서 위치 저장
-            m_prevMousePos = glm::vec2((float)x, (float)y);
+            m_prevMousePos = vec2((float)x, (float)y);
             m_camera.Control = true;
         }
         else if (action == GLFW_RELEASE)

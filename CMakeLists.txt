@@ -4,8 +4,8 @@ set(PROEJCT_NAME ComputerGraphics)
 set(CMAKE_CXX_STANDARD 17)
 
 set(WINDOW_NAME "Hello, OpenGL!")
-set(WINDOW_WIDTH 960)
-set(WINDOW_HEIGHT 540)
+set(WINDOW_WIDTH 1440)
+set(WINDOW_HEIGHT 900)
 
 
 project(${PROEJCT_NAME})
@@ -23,6 +23,7 @@ src/mesh.cpp src/mesh.h
 src/model.cpp src/model.h
 src/framebuffer.cpp src/framebuffer.h
 src/object.cpp src/object.h
+src/shadowmap.cpp src/shadowmap.h
 )
 
 
