@@ -28,20 +28,14 @@ void Mesh::Init(const std::vector<Vertex> &vertices,
     m_vertexLayout->SetAttrib(2, 2, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, texCoord));
 }
 
-void Mesh::Draw(const Program *program) const
+void Mesh::Draw() const
 {
-    if (m_material)
-        m_material->SetToProgram(program);
-
     m_vertexLayout->Bind();
     glDrawElements(m_primitiveType, m_indexBuffer->GetCount(), GL_UNSIGNED_INT, 0);
 }
 
-void Mesh::Draw(const Program *program, const VertexLayout *VAO, size_t instanceCnt) const
+void Mesh::Draw(const VertexLayout *VAO, size_t instanceCnt) const
 {
-    if (m_material)
-        m_material->SetToProgram(program);
-        
     VAO->Bind();
     glDrawElementsInstanced(GL_TRIANGLES, m_indexBuffer->GetCount(),
                             GL_UNSIGNED_INT, 0, instanceCnt);
@@ -115,23 +109,92 @@ MeshUPtr Mesh::CreatePlane()
     return Create(vertices, indices, GL_TRIANGLES);
 }
 
-void Material::SetToProgram(const Program *program) const
+void Material::InitProperty(vector<string> propertyNames)
 {
-    int textureCount = 0;
-    if (diffuse)
+    for (auto name : propertyNames)
     {
-        glActiveTexture(GL_TEXTURE0 + textureCount);
-        program->SetUniform("material.diffuse", textureCount);
-        diffuse->Bind();
-        textureCount++;
+        FieldType f;
+        propertyTable[name] = f;
     }
-    if (specular)
+}
+
+void Material::ApplyTexture(string key, TexturePtr tex, int textureNum)
+{
+    glActiveTexture(GL_TEXTURE0 + textureNum);
+    program->SetUniform(key, textureNum);
+    tex->Bind();
+}
+
+Material::Material(const ProgramPtr &_program)
+{
+    program = _program;
+
+    InitProperty({"transform", "modelTransform","color",
+                  "material.diffuse", "material.specular", "material.shininess"});
+}
+
+void Material::Apply()
+{
+    program->Use();
+
+    int textureNum = 0;
+
+    for (auto property : propertyTable)
     {
-        glActiveTexture(GL_TEXTURE0 + textureCount);
-        program->SetUniform("material.specular", textureCount);
-        specular->Bind();
-        textureCount++;
+        auto value = property.second;
+        string key = property.first;
+        visit(overloaded{
+                  [&](auto p)
+                  { program->SetUniform(key, p); },
+                  [&](TexturePtr p)
+                  {
+                      ApplyTexture(key, p, textureNum);
+                      textureNum++;
+                  },
+                  [&](monostate) {},
+              },
+              value);
     }
-    glActiveTexture(GL_TEXTURE0);
-    program->SetUniform("material.shininess", shininess);
+}
+
+void Material::SetProperty(string key, FieldType value)
+{
+    if (propertyTable.count(key) == 0)
+    {
+        SPDLOG_INFO("material key does not exist : {}", key);
+        return;
+    }
+    propertyTable[key] = value;
+}
+
+void TextureMaterial::ApplyTexture(string key, TexturePtr tex, int textureNum)
+{
+    // alpha blend
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_CULL_FACE);
+    // glCullFace(GL_BACK); // 뒷면 컬링
+    glActiveTexture(GL_TEXTURE0 + textureNum);
+    program->SetUniform(key, textureNum);
+    tex->Bind();
+}
+
+TextureMaterial::TextureMaterial(const ProgramPtr &_program)
+{
+    program = _program;
+    InitProperty({"transform", "modelTransform", "tex"});
+}
+
+NormalMapMaterial::NormalMapMaterial(const ProgramPtr &_program)
+{
+    program = _program;
+    InitProperty({"transform", "modelTransform", "viewPos",
+                  "lightPos", "diffuse", "normalMap"});
+}
+
+CubemapMaterial::CubemapMaterial(const ProgramPtr &_program)
+{
+    program = _program;
+    InitProperty({"model", "view", "projection",
+                  "cameraPos", "skybox"});
 }

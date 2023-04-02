@@ -27,6 +27,19 @@ public:
     bool Control{false};
 };
 
+struct Light
+{
+    bool directional{false};
+    vec3 position{vec3(2.0f, 4.0f, 4.0f)};
+    vec3 direction{vec3(-0.5f, -1.5f, -1.0f)};
+    // inner cut-off angle, offset angle
+    vec2 cutoff{vec2(50.0f, 5.0f)};
+    float distance{150.0f};
+    vec3 ambient{vec3(0.8f, 0.8f, 0.8f)};
+    vec3 diffuse{vec3(0.5f, 0.5f, 0.5f)};
+    vec3 specular{vec3(1.0f, 1.0f, 1.0f)};
+};
+
 CLASS_PTR(Context)
 class Context
 {
@@ -51,9 +64,9 @@ private:
     void UpdateLight(mat4 &projection, mat4 &view);
     void UpdateCamera();
     void DrawShadowedObjects(const mat4 &view, const mat4 &projection,
-                   const ProgramPtr &optionProgram );
+                             const MaterialPtr &optionMat = nullptr);
     void DrawShadowedObjects(const Camera &cam,
-                   const ProgramPtr &optionProgram );
+                             const MaterialPtr &optionMat = nullptr);
 
     void GenerateShadowMap();
 
@@ -62,10 +75,11 @@ private:
     ProgramPtr m_simpleProgram;
     ProgramPtr m_textureProgram;
     ProgramPtr m_lightingShadowProgram;
+    ProgramPtr m_normalProgram;
 
     MeshPtr m_box;
     MeshPtr m_plane;
-    TexturePtr m_windowTexture;
+
     // framebuffer
     FramebufferUPtr m_framebuffer;
     ProgramUPtr m_postProgram;
@@ -75,11 +89,35 @@ private:
     ProgramPtr m_envMapProgram;
 
     // grass
-    TexturePtr m_grassTexture;
     ProgramPtr m_grassProgram;
 
     // shadow map
     ShadowMapUPtr m_shadowMap;
+
+private:
+    MaterialPtr m_skyboxMaterial;
+    MaterialPtr m_groundMaterial;
+    MaterialPtr m_box1Material;
+    MaterialPtr m_box2Material;
+    MaterialPtr modelMaterial;
+    MaterialPtr shadowmapMaterial;
+    NormalMapMaterialPtr m_wallMaterial;
+    TextureMaterialPtr m_grassMaterial;
+    CubemapMaterialPtr m_cubeMapMaterial;
+    TextureMaterialPtr m_planeMaterial;
+
+private:
+    ObjectUPtr objSkybox;
+    ObjectUPtr objGround;
+    ObjectUPtr objBox1;
+    StencilBoxUPtr stencilBox;
+    ObjectUPtr objPlane1;
+    ObjectUPtr objPlane2;
+    ObjectUPtr objPlane3;
+    CubemapUPtr objCubemap;
+    ObjectUPtr objGrass;
+    WallUPtr objWall;
+    ModelUPtr m_model;
 
 private:
     // 창 크기
@@ -99,38 +137,10 @@ private:
     vec4 m_clearColor{vec4(0.1f, 0.2f, 0.3f, 0.0f)};
 
     // light parameter
-    struct Light
-    {
-        bool directional{false};
-        vec3 position{vec3(2.0f, 4.0f, 4.0f)};
-        vec3 direction{vec3(-0.5f, -1.5f, -1.0f)};
-        // inner cut-off angle, offset angle
-        vec2 cutoff{vec2(50.0f, 5.0f)};
-        float distance{150.0f};
-        vec3 ambient{vec3(0.1f, 0.1f, 0.1f)};
-        vec3 diffuse{vec3(0.5f, 0.5f, 0.5f)};
-        vec3 specular{vec3(1.0f, 1.0f, 1.0f)};
-    };
     Light m_light;
     bool m_freshLightMode{false}; // 손전등 모드
     bool m_blinn{true};
 
 private:
     float m_gamma{1.0f};
-
-private:
-    MaterialPtr m_planeMaterial;
-    MaterialPtr m_box1Material;
-    MaterialPtr m_box2Material;
-
-public:
-    ObjectUPtr objSkybox;
-    ObjectUPtr objGround;
-    ObjectUPtr objBox1;
-    StencilBoxUPtr stencilBox;
-    ObjectUPtr objPlane1;
-    ObjectUPtr objPlane2;
-    ObjectUPtr objPlane3;
-    CubemapUPtr objCubemap;
-    ObjectUPtr objGrass;
 };

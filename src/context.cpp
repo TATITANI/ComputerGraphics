@@ -57,6 +57,7 @@ void Context::InitShader()
 
     m_grassProgram = Program::Create("./shader/grass.vs", "./shader/grass.fs");
     m_lightingShadowProgram = Program::Create("./shader/lighting_shadow.vs", "./shader/lighting_shadow.fs");
+    m_normalProgram = Program::Create("./shader/normal.vs", "./shader/normal.fs");
 }
 
 void Context::InitMaterial()
@@ -68,27 +69,14 @@ void Context::InitMaterial()
     TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(
         Image::CreateSingleColorImage(4, 4, vec4(0.5f, 0.5f, 0.5f, 1.0f))));
 
-    m_windowTexture = Texture::CreateFromImage(ImagePtr(
-        Image::Load("./image/blending_transparent_window.png")));
-
-    m_planeMaterial = Material::Create();
-    m_planeMaterial->diffuse = Texture::CreateFromImage(ImagePtr(
-        Image::Load("./image/marble.jpg")));
-    m_planeMaterial->specular = grayTexture;
-    m_planeMaterial->shininess = 4.0f;
-
-    m_box1Material = Material::Create();
-    m_box1Material->diffuse = Texture::CreateFromImage(ImagePtr(
-        Image::Load("./image/container.jpg")));
-    m_box1Material->specular = darkGrayTexture;
-    m_box1Material->shininess = 16.0f;
-
-    m_box2Material = Material::Create();
-    m_box2Material->diffuse = Texture::CreateFromImage(ImagePtr(
-        Image::Load("./image/container2.png")));
-    m_box2Material->specular = Texture::CreateFromImage(
-        ImagePtr(Image::Load("./image/container2_specular.png")));
-    m_box2Material->shininess = 64.0f;
+    TexturePtr groundTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/marble.jpg")));
+    TexturePtr boxTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/container.jpg")));
+    TexturePtr box2Texture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/container2.png")));
+    TexturePtr box2SpecTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/container2_specular.png")));
+    TexturePtr wallTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/brickwall.jpg")));
+    TexturePtr wallNormalTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/brickwall_normal.jpg")));
+    TexturePtr planeTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/blending_transparent_window.png")));
+    TexturePtr grassTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/grass.png")));
 
     // skybox
     auto cubeRight = Image::Load("./image/skybox/right.jpg", false);
@@ -106,22 +94,60 @@ void Context::InitMaterial()
         cubeBack.get(),
     });
 
-    m_grassTexture = Texture::CreateFromImage(Image::Load("./image/grass.png"));
+    m_skyboxMaterial = MaterialPtr(new Material(m_skyboxProgram));
+
+    m_groundMaterial = MaterialPtr(new Material(m_lightingShadowProgram));
+    m_groundMaterial->SetProperty("material.diffuse", groundTexture);
+    m_groundMaterial->SetProperty("material.specular", grayTexture);
+    m_groundMaterial->SetProperty("material.shininess", 4.0f);
+
+    m_box1Material = MaterialPtr(new Material(m_lightingShadowProgram));
+    m_box1Material->SetProperty("material.diffuse", boxTexture);
+    m_box1Material->SetProperty("material.specular", darkGrayTexture);
+    m_box1Material->SetProperty("material.shininess", 16.0f);
+
+    m_box2Material = MaterialPtr(new Material(m_lightingShadowProgram));
+    m_box2Material->SetProperty("material.diffuse", box2Texture);
+    m_box2Material->SetProperty("material.specular", box2SpecTexture);
+    m_box2Material->SetProperty("material.shininess", 64.0f);
+
+    modelMaterial = MaterialPtr(new Material(m_lightingShadowProgram));
+    modelMaterial->SetProperty("material.shininess", 16.0f);
+
+    m_wallMaterial = NormalMapMaterialPtr(new NormalMapMaterial(m_normalProgram));
+    m_wallMaterial->SetProperty("diffuse", wallTexture);
+    m_wallMaterial->SetProperty("normalMap", wallNormalTexture);
+
+    m_planeMaterial = TextureMaterialPtr(new TextureMaterial(m_textureProgram));
+    m_planeMaterial->SetProperty("tex", planeTexture);
+
+    m_grassMaterial = TextureMaterialPtr(new TextureMaterial(m_grassProgram));
+    m_grassMaterial->SetProperty("tex", grassTexture);
+
+    m_cubeMapMaterial = CubemapMaterialPtr(new CubemapMaterial(m_envMapProgram));
+
+    shadowmapMaterial = MaterialPtr(new Material(m_simpleProgram));
+    shadowmapMaterial->SetProperty("color", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
     m_shadowMap = ShadowMap::Create(1024, 1024);
 }
 
 void Context::InitObject()
 {
-    objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50), m_skyboxProgram));
-    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(40.0f, 1.0f, 40.0f), m_program));
-    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_program));
-    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f), m_program));
-    objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1), m_textureProgram));
-    objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1), m_textureProgram));
-    objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1), m_textureProgram));
-    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f), m_envMapProgram));
-    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassProgram));
+    objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50), m_skyboxMaterial));
+    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(40.0f, 1.0f, 40.0f), m_groundMaterial));
+    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_box1Material));
+    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f), m_box2Material));
+    objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1), m_planeMaterial));
+    objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1), m_planeMaterial));
+    objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1), m_planeMaterial));
+    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f), m_cubeMapMaterial));
+    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassMaterial));
     objGrass->ActiveInstancing(10000, 3, 3, 1);
+
+    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(0), vec3(1), m_wallMaterial));
+
+    m_model = ModelUPtr(new Model("./model/backpack.obj", modelMaterial, Transform(vec3(-2.f, 1.5f, 3.0f), vec3(0), vec3(0.5f))));
 }
 
 void Context::UpdateLight(mat4 &projection, mat4 &view)
@@ -142,7 +168,7 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
         m_simpleProgram->Use();
         m_simpleProgram->SetUniform("color", vec4(m_light.ambient + m_light.diffuse, 1.0f));
         m_simpleProgram->SetUniform("transform", projection * view * lightModelTransform);
-        m_box->Draw(m_simpleProgram.get());
+        m_box->Draw();
     }
 
     m_program->Use();
@@ -177,19 +203,17 @@ void Context::UpdateCamera()
     m_camera.view = lookAt(m_camera.Pos, m_camera.Pos + m_camera.Front, m_camera.Up);
 }
 
-void Context::DrawShadowedObjects(const mat4 &view, const mat4 &projection, const ProgramPtr &optionProgram)
+void Context::DrawShadowedObjects(const mat4 &view, const mat4 &projection, const MaterialPtr &optionMat)
 {
-
-    objGround->Render(view, projection, m_planeMaterial, optionProgram);
-    objBox1->Render(view, projection, m_box1Material, optionProgram);
-
-    stencilBox->Render(view, projection, optionProgram,
-                       m_simpleProgram, vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
+    objGround->Render(view, projection, optionMat);
+    objBox1->Render(view, projection, optionMat);
+    stencilBox->Render(view, projection, optionMat, m_simpleProgram, vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
+    m_model->Render(view, projection, optionMat);
 }
 
-void Context::DrawShadowedObjects(const Camera &cam, const ProgramPtr &program)
+void Context::DrawShadowedObjects(const Camera &cam, const MaterialPtr &optionMat)
 {
-    DrawShadowedObjects(cam.view, cam.projection, program);
+    DrawShadowedObjects(cam.view, cam.projection, optionMat);
 }
 
 void Context::GenerateShadowMap()
@@ -206,10 +230,10 @@ void Context::GenerateShadowMap()
     glViewport(0, 0,
                m_shadowMap->GetShadowMap()->GetWidth(),
                m_shadowMap->GetShadowMap()->GetHeight());
-    m_simpleProgram->Use();
-    m_simpleProgram->SetUniform("color", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
     // 광원에서 shadow depth map을 그림
-    DrawShadowedObjects(lightView, lightProjection, m_simpleProgram);
+    DrawShadowedObjects(lightView, lightProjection, shadowmapMaterial);
+    //
 
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
@@ -228,12 +252,15 @@ void Context::GenerateShadowMap()
     m_lightingShadowProgram->SetUniform("light.specular", m_light.specular);
     m_lightingShadowProgram->SetUniform("blinn", (m_blinn ? 1 : 0));
     m_lightingShadowProgram->SetUniform("lightTransform", lightProjection * lightView);
-    glActiveTexture(GL_TEXTURE3);
+
+    glActiveTexture(GL_TEXTURE0 + 9);
     m_shadowMap->GetShadowMap()->Bind();
-    m_lightingShadowProgram->SetUniform("shadowMap", 3);
+    m_lightingShadowProgram->SetUniform("shadowMap", 9);
     glActiveTexture(GL_TEXTURE0);
 
-    DrawShadowedObjects(m_camera, m_lightingShadowProgram);
+    // shadowed Material
+
+    DrawShadowedObjects(m_camera);
 }
 
 void Context::Render()
@@ -251,22 +278,13 @@ void Context::Render()
     objSkybox->Render(m_camera.view, m_camera.projection);
     GenerateShadowMap();
 
-    // alpha blend
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_CULL_FACE);
-    // glCullFace(GL_BACK); // 뒷면 컬링
-    m_windowTexture->Bind();
-    m_textureProgram->SetUniform("tex", 0);
-    objPlane1->Render(m_camera, nullptr);
-    objPlane2->Render(m_camera, nullptr);
-    objPlane3->Render(m_camera, nullptr);
+    objPlane1->Render(m_camera);
+    objPlane2->Render(m_camera);
+    objPlane3->Render(m_camera);
 
-    objCubemap->Render(m_camera, nullptr);
-
-    m_grassProgram->SetUniform("tex", 0);
-    m_grassTexture->Bind();
-    objGrass->Render(m_camera, nullptr);
+    objCubemap->Render(m_camera);
+    objGrass->Render(m_camera);
+    objWall->Render(m_camera, m_light.position, m_wallMaterial);
 
     //// post process
     // Framebuffer::BindToDefault();

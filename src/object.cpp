@@ -1,15 +1,6 @@
 #include "context.h"
 #include "object.h"
 
-mat4 Transform::GetTransform()
-{
-    return translate(mat4(1.0f), pos) *
-           rotate(mat4(1.0f), radians(rot.x), vec3(1.0f, 0.0f, 0.0f)) *
-           rotate(mat4(1.0f), radians(rot.y), vec3(0.0f, 1.0f, 0.0f)) *
-           rotate(mat4(1.0f), radians(rot.z), vec3(0.0f, 0.0f, 1.0f)) *
-           scale(mat4(1.0f), scaleVec);
-}
-
 void Object::ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDivisor)
 {
     isInstance = true;
@@ -32,7 +23,7 @@ void Object::ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDi
                            offsetof(Vertex, texCoord));
 
     posBuffer = Buffer::CreateWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW,
-                                    positions.data(), sizeof(glm::vec3), positions.size());
+                                       positions.data(), sizeof(glm::vec3), positions.size());
     posBuffer->Bind();
     instanceVAO->SetAttrib(atbIndex, atbCount, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
     // index번 Attribute는 인스턴스가 divisor번 바뀔때마다 변경
@@ -47,60 +38,69 @@ void Object::Update(const Camera &cam)
 
 void Object::Update(const mat4 &view, const mat4 &projection)
 {
-    auto modelTransform = trf.GetTransform(); // world
+    auto modelTransform = trf.GetTransform();            // world
     auto transform = projection * view * modelTransform; // clip space
-    currentProgram->SetUniform("transform", transform);
-    currentProgram->SetUniform("modelTransform", modelTransform);
+
+    currentMaterial->SetProperty("transform", transform);
+    currentMaterial->SetProperty("modelTransform", modelTransform);
 }
 
 void Object::Draw()
 {
+    if (currentMaterial)
+        currentMaterial->Apply();
+
     if (isInstance)
-        mesh->Draw(currentProgram.get(), instanceVAO.get(), posBuffer->GetCount());
+        mesh->Draw(instanceVAO.get(), posBuffer->GetCount());
     else
-        mesh->Draw(currentProgram.get());
+        mesh->Draw();
 }
 
-void Object::UseProgram(const ProgramPtr &_program, const MaterialPtr &mat)
+void Object::Render(const Camera &cam, const MaterialPtr &optionMat)
 {
-    currentProgram = _program;
-    _program->Use();
-    if (mat)
-        mat->SetToProgram(_program.get());
-}
-
-void Object::UseProgram(const MaterialPtr &mat)
-{
-    UseProgram(this->defaultProgram, mat);
-}
-
-void Object::Render(const Camera &cam, const MaterialPtr &mat, const ProgramPtr &optionPgm)
-{
-    Render(cam.view, cam.projection, mat, optionPgm);
+    Render(cam.view, cam.projection, optionMat);
 }
 
 void Object::Render(const mat4 &view, const mat4 &projection,
-                    const MaterialPtr &mat, const ProgramPtr &optionPgm)
+                    const MaterialPtr &optionMat)
 {
-    UseProgram(optionPgm ? optionPgm : defaultProgram, mat);
+    SetCurrentMaterial(optionMat ? optionMat : material);
     Update(view, projection);
     Draw();
 }
 
-void Cubemap::Render(const Camera &cam, const MaterialPtr &mat, const ProgramPtr &optionPgm)
+void Cubemap::Render(const Camera &cam, const MaterialPtr &optionMat)
 {
-    UseProgram(optionPgm ? optionPgm : defaultProgram, mat);
+    SetCurrentMaterial(optionMat ? optionMat : material);
     Update(cam);
     Draw();
 }
 
 void Cubemap::Update(const Camera &cam)
 {
-    currentProgram->SetUniform("model", trf.GetTransform());
-    currentProgram->SetUniform("view", cam.view);
-    currentProgram->SetUniform("projection", cam.projection);
-    currentProgram->SetUniform("cameraPos", cam.Pos);
-    currentProgram->SetUniform("skybox", 0);
+    currentMaterial->SetProperty("model", trf.GetTransform());
+    currentMaterial->SetProperty("view", cam.view);
+    currentMaterial->SetProperty("projection", cam.projection);
+    currentMaterial->SetProperty("cameraPos", cam.Pos);
+    currentMaterial->SetProperty("skybox", 0);
+}
+
+void Wall::Update(const Camera &cam, const vec3 &lightPos)
+{
+    currentMaterial->SetProperty("viewPos", cam.Pos);
+    currentMaterial->SetProperty("lightPos", lightPos);
+
+    auto modelTransform = trf.GetTransform();                    // world
+    auto transform = cam.projection * cam.view * modelTransform; // clip space
+    currentMaterial->SetProperty("transform", transform);
+    currentMaterial->SetProperty("modelTransform", modelTransform);
+}
+
+void Wall::Render(const Camera &cam, const vec3 &lightPos, const MaterialPtr &optionMat)
+{
+    SetCurrentMaterial(optionMat ? optionMat : material);
+    Update(cam, lightPos);
+    Draw();
 }
 
 void StencilBox::Update(const mat4 &view, const mat4 &projection)
@@ -123,10 +123,10 @@ void StencilBox::Draw(vec4 &color, float outlineSize)
     glStencilMask(0x00);
     glDisable(GL_DEPTH_TEST);
 
-    outlineProgram->Use();
-    outlineProgram->SetUniform("color", color);
-    outlineProgram->SetUniform("transform", trf * scale(mat4(1.0f), vec3(outlineSize)));
-    mesh->Draw(outlineProgram.get());
+    outlinePgm->Use();
+    outlinePgm->SetUniform("color", color);
+    outlinePgm->SetUniform("transform", trf * scale(mat4(1.0f), vec3(outlineSize)));
+    mesh->Draw();
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -135,23 +135,19 @@ void StencilBox::Draw(vec4 &color, float outlineSize)
     glStencilMask(0xFF);
 }
 
-void StencilBox::UseProgram(const ProgramPtr &optionPgm, const ProgramPtr &_outlinePgm)
-{
-    obj.UseProgram(optionPgm ? optionPgm : obj.defaultProgram);
-    outlineProgram = _outlinePgm;
-}
 
-void StencilBox::Render(const Camera &cam, const ProgramPtr &optionPgm, ProgramPtr &_outlinePgm,
+void StencilBox::Render(const Camera &cam, const MaterialPtr &optionMat, ProgramPtr &_outlinePgm,
                         vec4 &color, float outlineSize)
 {
-    Render(cam.view, cam.projection, optionPgm, _outlinePgm,
+    Render(cam.view, cam.projection, optionMat, _outlinePgm,
            color, outlineSize);
 }
 
-void StencilBox::Render(const mat4 &view, const mat4 &projection, const ProgramPtr &optionPgm,
+void StencilBox::Render(const mat4 &view, const mat4 &projection, const MaterialPtr &optionMat,
                         ProgramPtr &_outlinePgm, vec4 &color, float outlineSize)
 {
-    UseProgram(optionPgm, _outlinePgm);
+    obj.SetCurrentMaterial(optionMat ? optionMat : obj.material);
+    outlinePgm = _outlinePgm;
     Update(view, projection);
     Draw(color, outlineSize);
 }

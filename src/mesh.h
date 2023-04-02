@@ -5,6 +5,14 @@
 #include "vertexlayout.h"
 #include "texture.h"
 #include "program.h"
+#include <variant>
+#include <tuple>
+#include <map>
+#include <vector>
+
+using namespace std;
+
+using FieldType = variant<monostate, int, float, glm::vec3, glm ::vec4, glm::mat4, TexturePtr>;
 
 struct Vertex
 {
@@ -16,26 +24,56 @@ struct Vertex
 CLASS_PTR(Material);
 class Material
 {
-public:
-    static MaterialUPtr Create()
-    {
-        return MaterialUPtr(new Material());
-    }
-    TexturePtr diffuse;
-    TexturePtr specular;
-    float shininess{32.0f};
-    void SetToProgram(const Program *program) const;
+protected:
+protected:
+    ProgramPtr program;
+    unordered_map<string, FieldType> propertyTable; // value : (type - value)
 
-private:
-    Material() {}
+    void InitProperty(vector<string> propertyNames);
+    virtual void ApplyTexture(string key, TexturePtr tex, int textureNum);
+
+public:
+    Material() = default;
+    Material(const ProgramPtr &_program);
+    ~Material() = default;
+    void Apply();
+
+    void SetProperty(string key, FieldType value);
+};
+
+CLASS_PTR(TextureMaterial)
+class TextureMaterial : public Material
+{
+protected:
+    virtual void ApplyTexture(string key, TexturePtr tex, int textureNum) override;
+
+public:
+    TextureMaterial(const ProgramPtr &_program);
+    ~TextureMaterial() = default;
+};
+
+CLASS_PTR(CubemapMaterial)
+class CubemapMaterial : public Material
+{
+public:
+    CubemapMaterial(const ProgramPtr &_program);
+    ~CubemapMaterial() = default;
+};
+
+CLASS_PTR(NormalMapMaterial)
+class NormalMapMaterial : public Material
+{
+public:
+    NormalMapMaterial(const ProgramPtr &_program);
+    ~NormalMapMaterial() = default;
 };
 
 CLASS_PTR(Mesh);
 class Mesh
 {
 public:
-    static MeshUPtr Create(const std::vector<Vertex> &vertices,
-                           const std::vector<uint32_t> &indices,
+    static MeshUPtr Create(const vector<Vertex> &vertices,
+                           const vector<uint32_t> &indices,
                            uint32_t primitiveType);
 
     static MeshUPtr Mesh::CreateBox();
@@ -48,16 +86,13 @@ public:
     void BindVertexBuffer() { m_vertexBuffer->Bind(); }
     void BindIndexBuffer() { m_indexBuffer->Bind(); }
 
-    void SetMaterial(MaterialPtr material) { m_material = material; }
-    MaterialPtr GetMaterial() const { return m_material; }
-
-    void Draw(const Program *program) const;
-    void Draw(const Program *program, const VertexLayout *VAO, size_t instanceCnt) const;
+    void Draw() const;
+    void Draw(const VertexLayout *VAO, size_t instanceCnt) const;
 
 private:
     Mesh() {}
-    void Init(const std::vector<Vertex> &vertices,
-              const std::vector<uint32_t> &indices,
+    void Init(const vector<Vertex> &vertices,
+              const vector<uint32_t> &indices,
               uint32_t primitiveType);
 
     uint32_t m_primitiveType{GL_TRIANGLES};

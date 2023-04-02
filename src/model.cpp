@@ -1,11 +1,13 @@
 #include "model.h"
+#include "transform.h"
 
-ModelUPtr Model::Load(const std::string &filename)
+Model::Model(const std::string &filename, const MaterialPtr &_mat, const Transform &&_trf)
 {
-    auto model = ModelUPtr(new Model());
-    if (!model->LoadByAssimp(filename))
-        return nullptr;
-    return std::move(model);
+    if (LoadByAssimp(filename))
+    {
+        material = _mat;
+        transform = _trf;
+    }
 }
 
 bool Model::LoadByAssimp(const std::string &filename)
@@ -20,12 +22,12 @@ bool Model::LoadByAssimp(const std::string &filename)
     }
 
     auto dirname = filename.substr(0, filename.find_last_of("/"));
-    auto LoadTexture = [&](aiMaterial *material, aiTextureType type) -> TexturePtr
+    auto LoadTexture = [&](aiMaterial *aiMaterial, aiTextureType type) -> TexturePtr
     {
-        if (material->GetTextureCount(type) <= 0)
+        if (aiMaterial->GetTextureCount(type) <= 0)
             return nullptr;
         aiString filepath;
-        material->GetTexture(aiTextureType_DIFFUSE, 0, &filepath);
+        aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &filepath);
         auto image = Image::Load(fmt::format("{}/{}", dirname, filepath.C_Str()));
         if (!image)
             return nullptr;
@@ -34,11 +36,12 @@ bool Model::LoadByAssimp(const std::string &filename)
 
     for (uint32_t i = 0; i < scene->mNumMaterials; i++)
     {
-        auto material = scene->mMaterials[i];
-        auto glMaterial = Material::Create();
-        glMaterial->diffuse = LoadTexture(material, aiTextureType_DIFFUSE);
-        glMaterial->specular = LoadTexture(material, aiTextureType_SPECULAR);
-        m_materials.push_back(std::move(glMaterial));
+        auto aiMaterial = scene->mMaterials[i];
+
+        auto diffuseTex = LoadTexture(aiMaterial, aiTextureType_DIFFUSE);
+        auto specTex = LoadTexture(aiMaterial, aiTextureType_SPECULAR);
+
+        textures.push_back({diffuseTex, specTex});
     }
 
     ProcessNode(scene->mRootNode, scene);
@@ -85,16 +88,28 @@ void Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
     }
 
     auto glMesh = Mesh::Create(vertices, indices, GL_TRIANGLES);
-    if (mesh->mMaterialIndex >= 0)
-        glMesh->SetMaterial(m_materials[mesh->mMaterialIndex]);
-
-    m_meshes.push_back(std::move(glMesh));
+    meshDatas.push_back({std::move(glMesh), mesh->mMaterialIndex});
 }
 
-void Model::Draw(const Program* program) const
+void Model::Render(const mat4 &view, const mat4 &projection, const MaterialPtr &optionMat)
 {
-    for (auto &mesh : m_meshes)
+    auto modelTransform = this->transform.GetTransform(); // world
+    auto transform = projection * view * modelTransform;  // clip space
+
+    for (auto &data : meshDatas)
     {
-        mesh->Draw(program);
+        auto mesh = data.first;
+        int materialID = data.second;
+        if (materialID >= 0)
+        {
+            MaterialPtr mat = optionMat ? optionMat : material;
+            mat->SetProperty("material.diffuse", textures[materialID].first);
+            mat->SetProperty("material.specular", textures[materialID].second);
+            mat->SetProperty("transform", transform);
+            mat->SetProperty("modelTransform", modelTransform);
+            mat->Apply();
+        }
+
+        mesh->Draw();
     }
 }

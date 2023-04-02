@@ -18,3 +18,12 @@
 
 std::optional<std::string> LoadTextFile(const std::string &filename);
 glm::vec3 GetAttenuationCoeff(float distance);
+
+template <class... Ts>
+struct overloaded : Ts...
+{
+    using Ts::operator()...;
+};
+// explicit deduction guide (not needed as of C++20)
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
