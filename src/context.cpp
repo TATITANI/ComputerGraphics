@@ -145,7 +145,7 @@ void Context::InitObject()
     objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassMaterial));
     objGrass->ActiveInstancing(10000, 3, 3, 1);
 
-    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(0), vec3(1), m_wallMaterial));
+    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(-90,0,0), vec3(1), m_wallMaterial));
 
     m_model = ModelUPtr(new Model("./model/backpack.obj", modelMaterial, Transform(vec3(-2.f, 1.5f, 3.0f), vec3(0), vec3(0.5f))));
 }

@@ -17,10 +17,9 @@ void Object::ActiveInstancing(size_t size, int atbIndex, int atbCount, int atbDi
 
     mesh->BindVertexBuffer();
     instanceVAO->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-    instanceVAO->SetAttrib(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                           offsetof(Vertex, normal));
-    instanceVAO->SetAttrib(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                           offsetof(Vertex, texCoord));
+    instanceVAO->SetAttrib(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, normal));
+    instanceVAO->SetAttrib(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, texCoord));
+    instanceVAO->SetAttrib(3, 3, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, tangent));
 
     posBuffer = Buffer::CreateWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW,
                                        positions.data(), sizeof(glm::vec3), positions.size());
@@ -134,7 +133,6 @@ void StencilBox::Draw(vec4 &color, float outlineSize)
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilMask(0xFF);
 }
-
 
 void StencilBox::Render(const Camera &cam, const MaterialPtr &optionMat, ProgramPtr &_outlinePgm,
                         vec4 &color, float outlineSize)
