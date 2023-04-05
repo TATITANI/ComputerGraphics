@@ -24,6 +24,7 @@ src/model.cpp src/model.h
 src/framebuffer.cpp src/framebuffer.h
 src/object.cpp src/object.h
 src/shadowmap.cpp src/shadowmap.h
+src/material.cpp src/material.h
 )
 
 

@@ -3,10 +3,14 @@
 #include "transform.h"
 #include "common.h"
 #include "mesh.h"
+#include "framebuffer.h"
+
 using namespace glm;
 using namespace std;
 
 struct Camera;
+struct DeferLight;
+
 
 CLASS_PTR(Object)
 class Object
@@ -24,11 +28,14 @@ protected:
     vector<vec3> positions;
     BufferUPtr posBuffer;
     VertexLayoutUPtr instanceVAO;
-    void SetCurrentMaterial(const MaterialPtr &mat){currentMaterial = mat;};
+    void SetCurrentMaterial(const MaterialPtr &mat) { currentMaterial = mat; };
+
 public:
     Object(){};
     Object(MeshPtr &_mesh, vec3 _pos, vec3 _rot, vec3 _scale, MaterialPtr _mat)
         : mesh(_mesh), trf(_pos, _rot, _scale), material(_mat), currentMaterial(_mat){};
+    Object(MeshPtr &_mesh, Transform _trf, MaterialPtr _mat)
+        : mesh(_mesh), trf(_trf), material(_mat), currentMaterial(_mat){};
     Object(MeshPtr &_mesh, vec3 _pos)
         : mesh(_mesh), trf(_pos, vec3(0), vec3(1)){};
 
@@ -54,7 +61,6 @@ public:
         : Object(_mesh, _pos, _rot, _scale, _mat){};
     ~Cubemap(){};
 
-    virtual void Render(const Camera &cam, const MaterialPtr &optionMat = nullptr) override;
     virtual void Update(const Camera &cam) override;
 };
 
@@ -70,6 +76,18 @@ public:
     ~Wall(){};
 
     void Render(const Camera &cam, const vec3 &lightPos, const MaterialPtr &optionMat = nullptr);
+};
+
+CLASS_PTR(DeferredPlane)
+class DeferredPlane : public Object
+{
+
+public:
+    DeferredPlane(MeshPtr &_mesh, Transform _trf, MaterialPtr _mat)
+        : Object(_mesh, _trf, _mat){};
+    ~DeferredPlane(){};
+
+    void Render(const Camera &cam, const FramebufferPtr &buf, const vector<DeferLight> &_lights);
 };
 
 CLASS_PTR(StencilBox)

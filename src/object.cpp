@@ -57,7 +57,9 @@ void Object::Draw()
 
 void Object::Render(const Camera &cam, const MaterialPtr &optionMat)
 {
-    Render(cam.view, cam.projection, optionMat);
+    SetCurrentMaterial(optionMat ? optionMat : material);
+    Update(cam);
+    Draw();
 }
 
 void Object::Render(const mat4 &view, const mat4 &projection,
@@ -65,13 +67,6 @@ void Object::Render(const mat4 &view, const mat4 &projection,
 {
     SetCurrentMaterial(optionMat ? optionMat : material);
     Update(view, projection);
-    Draw();
-}
-
-void Cubemap::Render(const Camera &cam, const MaterialPtr &optionMat)
-{
-    SetCurrentMaterial(optionMat ? optionMat : material);
-    Update(cam);
     Draw();
 }
 
@@ -99,6 +94,32 @@ void Wall::Render(const Camera &cam, const vec3 &lightPos, const MaterialPtr &op
 {
     SetCurrentMaterial(optionMat ? optionMat : material);
     Update(cam, lightPos);
+    Draw();
+}
+
+void DeferredPlane::Render(const Camera &cam, const FramebufferPtr &buf, const vector<DeferLight> &_lights)
+{
+    glActiveTexture(GL_TEXTURE0);
+    buf->GetColorAttachment(0)->Bind();
+    glActiveTexture(GL_TEXTURE1);
+    buf->GetColorAttachment(1)->Bind();
+    glActiveTexture(GL_TEXTURE2);
+    buf->GetColorAttachment(2)->Bind();
+    glActiveTexture(GL_TEXTURE0);
+
+    currentMaterial->SetProperty("gPosition", 0);
+    currentMaterial->SetProperty("gNormal", 1);
+    currentMaterial->SetProperty("gAlbedoSpec", 2);
+
+    for (size_t i = 0; i < _lights.size(); i++)
+    {
+        auto posName = fmt::format("lights[{}].position", i);
+        auto colorName = fmt::format("lights[{}].color", i);
+        currentMaterial->SetProperty(posName, _lights[i].position);
+        currentMaterial->SetProperty(colorName, _lights[i].color);
+    }
+    currentMaterial->SetProperty("transform", trf.GetTransform());
+
     Draw();
 }
 

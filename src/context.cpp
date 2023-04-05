@@ -29,6 +29,7 @@ bool Context::Init()
 
     try
     {
+        InitParameters();
         InitShader();
         InitMaterial();
         InitObject();
@@ -58,16 +59,17 @@ void Context::InitShader()
     m_grassProgram = Program::Create("./shader/grass.vs", "./shader/grass.fs");
     m_lightingShadowProgram = Program::Create("./shader/lighting_shadow.vs", "./shader/lighting_shadow.fs");
     m_normalProgram = Program::Create("./shader/normal.vs", "./shader/normal.fs");
+
+    m_deferGeoProgram = Program::Create("./shader/defer_geo.vs", "./shader/defer_geo.fs");
+    m_deferLightProgram = Program::Create("./shader/defer_light.vs", "./shader/defer_light.fs");
 }
 
 void Context::InitMaterial()
 {
     // 단색 매터리얼 생성
-    TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(
-        Image::CreateSingleColorImage(4, 4, vec4(0.2f, 0.2f, 0.2f, 1.0f))));
+    TexturePtr darkGrayTexture = Texture::CreateFromImage(ImagePtr(Image::CreateSingleColorImage(4, 4, vec4(0.2f, 0.2f, 0.2f, 1.0f))));
 
-    TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(
-        Image::CreateSingleColorImage(4, 4, vec4(0.5f, 0.5f, 0.5f, 1.0f))));
+    TexturePtr grayTexture = Texture::CreateFromImage(ImagePtr(Image::CreateSingleColorImage(4, 4, vec4(0.5f, 0.5f, 0.5f, 1.0f))));
 
     TexturePtr groundTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/marble.jpg")));
     TexturePtr boxTexture = Texture::CreateFromImage(ImagePtr(Image::Load("./image/container.jpg")));
@@ -129,13 +131,23 @@ void Context::InitMaterial()
     shadowmapMaterial = MaterialPtr(new Material(m_simpleProgram));
     shadowmapMaterial->SetProperty("color", vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
+    deferredGeoGroundMaterial = MaterialPtr(new Material(m_deferGeoProgram));
+    deferredGeoGroundMaterial->SetProperty("material.diffuse", groundTexture);
+    deferredGeoGroundMaterial->SetProperty("material.specular", darkGrayTexture);
+
+    deferredGeoBoxMaterial = MaterialPtr(new Material(m_deferGeoProgram));
+    deferredGeoBoxMaterial->SetProperty("material.diffuse", boxTexture);
+    deferredGeoBoxMaterial->SetProperty("material.specular", darkGrayTexture);
+
+    deferredLightMaterial = DeferredMaterialPtr(new DeferredMaterial(m_deferLightProgram, m_deferLights.size()));
+
     m_shadowMap = ShadowMap::Create(1024, 1024);
 }
 
 void Context::InitObject()
 {
     objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50), m_skyboxMaterial));
-    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(40.0f, 1.0f, 40.0f), m_groundMaterial));
+    objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(15.0f, 1.0f, 15.0f), m_groundMaterial));
     objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_box1Material));
     stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f), m_box2Material));
     objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1), m_planeMaterial));
@@ -145,9 +157,28 @@ void Context::InitObject()
     objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassMaterial));
     objGrass->ActiveInstancing(10000, 3, 3, 1);
 
-    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(-90,0,0), vec3(1), m_wallMaterial));
+    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(-45, 0, 0), vec3(1), m_wallMaterial));
+    objDeferredPlane = DeferredPlanePtr(new DeferredPlane(m_plane, Transform(vec3(0), vec3(0), vec3(2)), deferredLightMaterial));
+    objDeferredGround = ObjectUPtr(new Object(m_box, vec3(-10.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(5.0f, 1.0f, 5.0f), deferredGeoGroundMaterial));
+    objDeferredBox = ObjectUPtr(new Object(m_box, vec3(-10.0f, 0.75f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), deferredGeoBoxMaterial));
 
     m_model = ModelUPtr(new Model("./model/backpack.obj", modelMaterial, Transform(vec3(-2.f, 1.5f, 3.0f), vec3(0), vec3(0.5f))));
+}
+
+void Context::InitParameters()
+{
+    m_deferLights.resize(32);
+    for (size_t i = 0; i < m_deferLights.size(); i++)
+    {
+        m_deferLights[i].position = glm::vec3(
+            RandomRange(-15.0f, -5.0f),
+            RandomRange(1.0f, 3.0f),
+            RandomRange(-5.0f, 5.0f));
+        m_deferLights[i].color = glm::vec3(
+            RandomRange(0.05f, 0.3f),
+            RandomRange(0.05f, 0.3f),
+            RandomRange(0.05f, 0.3f));
+    }
 }
 
 void Context::UpdateLight(mat4 &projection, mat4 &view)
@@ -162,13 +193,15 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     else
     {
         // 광원
-        auto lightModelTransform = translate(mat4(1.0), m_light.position) *
-                                   scale(mat4(1.0), vec3(0.1f));
-
         m_simpleProgram->Use();
-        m_simpleProgram->SetUniform("color", vec4(m_light.ambient + m_light.diffuse, 1.0f));
-        m_simpleProgram->SetUniform("transform", projection * view * lightModelTransform);
-        m_box->Draw();
+        for (size_t i = 0; i < m_deferLights.size(); i++)
+        {
+            m_simpleProgram->SetUniform("color", glm::vec4(m_deferLights[i].color, 1.0f));
+            m_simpleProgram->SetUniform("transform", projection * view *
+                                                         glm::translate(glm::mat4(1.0f), m_deferLights[i].position) *
+                                                         glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
+            m_box->Draw();
+        }
     }
 
     m_program->Use();
@@ -208,7 +241,7 @@ void Context::DrawShadowedObjects(const mat4 &view, const mat4 &projection, cons
     objGround->Render(view, projection, optionMat);
     objBox1->Render(view, projection, optionMat);
     stencilBox->Render(view, projection, optionMat, m_simpleProgram, vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
-    m_model->Render(view, projection, optionMat);
+    // m_model->Render(view, projection, optionMat);
 }
 
 void Context::DrawShadowedObjects(const Camera &cam, const MaterialPtr &optionMat)
@@ -263,6 +296,33 @@ void Context::GenerateShadowMap()
     DrawShadowedObjects(m_camera);
 }
 
+void Context::RenderDeffered()
+{
+    m_deferGeoFramebuffer->Bind();
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, m_width, m_height);
+
+    objDeferredGround->Render(m_camera.view, m_camera.projection);
+    objDeferredBox->Render(m_camera.view, m_camera.projection);
+
+    Framebuffer::BindToDefault();
+    glViewport(0, 0, m_width, m_height);
+    glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    objDeferredPlane->Render(m_camera, m_deferGeoFramebuffer, m_deferLights);
+
+    //// forward 쉐이딩 전환
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_deferGeoFramebuffer->Get());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    // read buffer의 뎁스 정보(GL_DEPTH_BUFFER_BIT)를 draw 버퍼에 복사함
+    glBlitFramebuffer(0, 0, m_width, m_height,
+                      0, 0, m_width, m_height,
+                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Context::Render()
 {
     RenderIMGUI();
@@ -273,10 +333,12 @@ void Context::Render()
     glEnable(GL_DEPTH_TEST);
 
     UpdateCamera();
+
+    RenderDeffered();
     UpdateLight(m_camera.projection, m_camera.view);
 
-    objSkybox->Render(m_camera.view, m_camera.projection);
     GenerateShadowMap();
+    objSkybox->Render(m_camera.view, m_camera.projection);
 
     objPlane1->Render(m_camera);
     objPlane2->Render(m_camera);
@@ -285,6 +347,7 @@ void Context::Render()
     objCubemap->Render(m_camera);
     objGrass->Render(m_camera);
     objWall->Render(m_camera, m_light.position, m_wallMaterial);
+
 
     //// post process
     // Framebuffer::BindToDefault();
@@ -345,6 +408,24 @@ void Context::RenderIMGUI()
     ImGui::Image((ImTextureID)m_shadowMap->GetShadowMap()->Get(),
                  ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
     ImGui::End();
+
+    if (ImGui::Begin("G-Buffers"))
+    {
+        const char *bufferNames[] = {
+            "position",
+            "normal",
+            "albedo/specular",
+        };
+        static int bufferSelect = 0;
+        ImGui::Combo("buffer", &bufferSelect, bufferNames, 3);
+        float width = ImGui::GetContentRegionAvailWidth(); // 화면에 그릴 수 있는 window size
+        float height = width * ((float)m_height / (float)m_width);
+        auto selectedAttachment =
+            m_deferGeoFramebuffer->GetColorAttachment(bufferSelect);
+        ImGui::Image((ImTextureID)selectedAttachment->Get(),
+                     ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+    }
+    ImGui::End();
 }
 
 void Context::ProcessInput(GLFWwindow *window)
@@ -377,9 +458,16 @@ void Context::Reshape(int width, int height)
     m_height = height;
     glViewport(0, 0, m_width, m_height);
 
-    m_framebuffer = Framebuffer::Create(Texture::Create(width, height, GL_RGBA));
-}
+    m_framebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RGBA),
+    });
 
+    m_deferGeoFramebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),      // position
+        Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),      // normal
+        Texture::Create(width, height, GL_RGBA, GL_UNSIGNED_BYTE), // albedo
+    });
+}
 void Context::MouseMove(double x, double y)
 {
     if (!m_camera.Control)

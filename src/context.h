@@ -5,6 +5,7 @@
 #include "program.h"
 #include "buffer.h"
 #include "vertexLayout.h"
+#include "material.h"
 #include "mesh.h"
 #include "model.h"
 #include "framebuffer.h"
@@ -40,6 +41,12 @@ struct Light
     vec3 specular{vec3(1.0f, 1.0f, 1.0f)};
 };
 
+struct DeferLight
+{
+    glm::vec3 position;
+    glm::vec3 color;
+};
+
 CLASS_PTR(Context)
 class Context
 {
@@ -60,6 +67,7 @@ private:
     void InitShader();
     void InitMaterial();
     void InitObject();
+    void InitParameters();
 
     void UpdateLight(mat4 &projection, mat4 &view);
     void UpdateCamera();
@@ -69,6 +77,7 @@ private:
                              const MaterialPtr &optionMat = nullptr);
 
     void GenerateShadowMap();
+    void RenderDeffered();
 
 private:
     ProgramPtr m_program;
@@ -94,6 +103,12 @@ private:
     // shadow map
     ShadowMapUPtr m_shadowMap;
 
+    // deferred shading
+    FramebufferPtr m_deferGeoFramebuffer;
+
+    ProgramPtr m_deferGeoProgram;
+    ProgramPtr m_deferLightProgram;
+
 private:
     MaterialPtr m_skyboxMaterial;
     MaterialPtr m_groundMaterial;
@@ -105,6 +120,12 @@ private:
     TextureMaterialPtr m_grassMaterial;
     CubemapMaterialPtr m_cubeMapMaterial;
     TextureMaterialPtr m_planeMaterial;
+
+    MaterialPtr deferredGeoBoxMaterial;
+    MaterialPtr deferredGeoGroundMaterial;
+    MaterialPtr deferredLightMaterial;
+
+    vector<DeferLight> m_deferLights;
 
 private:
     ObjectUPtr objSkybox;
@@ -118,6 +139,10 @@ private:
     ObjectUPtr objGrass;
     WallUPtr objWall;
     ModelUPtr m_model;
+    DeferredPlanePtr objDeferredPlane;
+    ObjectUPtr objDeferredGround;
+    ObjectUPtr objDeferredBox;
+
 
 private:
     // 창 크기
