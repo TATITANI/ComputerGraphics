@@ -62,6 +62,9 @@ void Context::InitShader()
 
     m_deferGeoProgram = Program::Create("./shader/defer_geo.vs", "./shader/defer_geo.fs");
     m_deferLightProgram = Program::Create("./shader/defer_light.vs", "./shader/defer_light.fs");
+
+    m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+    m_blurProgram = Program::Create("./shader/blur_5x5.vs", "./shader/blur_5x5.fs");
 }
 
 void Context::InitMaterial()
@@ -113,7 +116,7 @@ void Context::InitMaterial()
     m_box2Material->SetProperty("material.specular", box2SpecTexture);
     m_box2Material->SetProperty("material.shininess", 64.0f);
 
-    modelMaterial = MaterialPtr(new Material(m_lightingShadowProgram));
+    modelMaterial = MaterialPtr(new Material(m_deferGeoProgram /*m_lightingShadowProgram*/));
     modelMaterial->SetProperty("material.shininess", 16.0f);
 
     m_wallMaterial = NormalMapMaterialPtr(new NormalMapMaterial(m_normalProgram));
@@ -141,6 +144,23 @@ void Context::InitMaterial()
 
     deferredLightMaterial = DeferredMaterialPtr(new DeferredMaterial(m_deferLightProgram, m_deferLights.size()));
 
+    ssaoMaterial = SSAOMaterialPtr(new SSAOMaterial(m_ssaoProgram));
+    ssaoBlurMaterial = TextureMaterialPtr(new TextureMaterial(m_blurProgram));
+
+    std::vector<glm::vec3> ssaoNoise;
+    ssaoNoise.resize(16);
+    for (size_t i = 0; i < ssaoNoise.size(); i++)
+    {
+        // randonly selected tangent direction
+        glm::vec3 sample(RandomRange(-1.0f, 1.0f),
+                         RandomRange(-1.0f, 1.0f), 0.0f);
+        ssaoNoise[i] = sample;
+    }
+    m_ssaoNoiseTexture = Texture::Create(4, 4, GL_RGB16F, GL_FLOAT);
+    m_ssaoNoiseTexture->SetFilter(GL_NEAREST, GL_NEAREST);
+    m_ssaoNoiseTexture->SetWrap(GL_REPEAT, GL_REPEAT);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, GL_RGB, GL_FLOAT, ssaoNoise.data());
+
     m_shadowMap = ShadowMap::Create(1024, 1024);
 }
 
@@ -159,10 +179,12 @@ void Context::InitObject()
 
     objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(-45, 0, 0), vec3(1), m_wallMaterial));
     objDeferredPlane = DeferredPlanePtr(new DeferredPlane(m_plane, Transform(vec3(0), vec3(0), vec3(2)), deferredLightMaterial));
-    objDeferredGround = ObjectUPtr(new Object(m_box, vec3(-10.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(5.0f, 1.0f, 5.0f), deferredGeoGroundMaterial));
-    objDeferredBox = ObjectUPtr(new Object(m_box, vec3(-10.0f, 0.75f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), deferredGeoBoxMaterial));
+    objDeferredGround = ObjectUPtr(new Object(m_box, vec3(-20.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(15.0f, 1.0f, 15.0f), deferredGeoGroundMaterial));
+    objDeferredBox = ObjectUPtr(new Object(m_box, vec3(-20.0f, 0.75f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), deferredGeoBoxMaterial));
+    objSSAOPlane = SSAOPlaneUPtr(new SSAOPlane(m_plane, Transform(vec3(0), vec3(0), vec3(2.f)), ssaoMaterial));
+    objBlurPlane = BlurPlaneUPtr(new BlurPlane(m_plane, Transform(vec3(0), vec3(0), vec3(2.f)), ssaoBlurMaterial));
 
-    m_model = ModelUPtr(new Model("./model/backpack.obj", modelMaterial, Transform(vec3(-2.f, 1.5f, 3.0f), vec3(0), vec3(0.5f))));
+    m_model = ModelUPtr(new Model("./model/backpack.obj", modelMaterial, Transform(vec3(-20.f, 0.5f, 3.0f), vec3(-90, 0, 0), vec3(0.5f))));
 }
 
 void Context::InitParameters()
@@ -171,13 +193,30 @@ void Context::InitParameters()
     for (size_t i = 0; i < m_deferLights.size(); i++)
     {
         m_deferLights[i].position = glm::vec3(
-            RandomRange(-15.0f, -5.0f),
+            RandomRange(-25.0f, -10.0f),
             RandomRange(1.0f, 3.0f),
             RandomRange(-5.0f, 5.0f));
         m_deferLights[i].color = glm::vec3(
-            RandomRange(0.05f, 0.3f),
-            RandomRange(0.05f, 0.3f),
-            RandomRange(0.05f, 0.3f));
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f));
+    }
+
+    m_ssaoSamples.resize(64);
+    for (size_t i = 0; i < m_ssaoSamples.size(); i++)
+    {
+        // uniformly randomized point in unit hemisphere
+        glm::vec3 sample(RandomRange(-1.0f, 1.0f),
+                         RandomRange(-1.0f, 1.0f),
+                         RandomRange(0.0f, 1.0f));
+        sample = glm::normalize(sample) * RandomRange();
+
+        // scale for slightly shift to center
+        float t = (float)i / (float)m_ssaoSamples.size();
+        float t2 = t * t;
+        float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
+
+        m_ssaoSamples[i] = sample * scale;
     }
 }
 
@@ -241,7 +280,6 @@ void Context::DrawShadowedObjects(const mat4 &view, const mat4 &projection, cons
     objGround->Render(view, projection, optionMat);
     objBox1->Render(view, projection, optionMat);
     stencilBox->Render(view, projection, optionMat, m_simpleProgram, vec4(1.0f, 1.0f, 0.5f, 1.0f), 1.05f);
-    // m_model->Render(view, projection, optionMat);
 }
 
 void Context::DrawShadowedObjects(const Camera &cam, const MaterialPtr &optionMat)
@@ -286,9 +324,10 @@ void Context::GenerateShadowMap()
     m_lightingShadowProgram->SetUniform("blinn", (m_blinn ? 1 : 0));
     m_lightingShadowProgram->SetUniform("lightTransform", lightProjection * lightView);
 
-    glActiveTexture(GL_TEXTURE0 + 9);
+    const int shadowMapTexNum = 9;
+    glActiveTexture(GL_TEXTURE0 + shadowMapTexNum);
     m_shadowMap->GetShadowMap()->Bind();
-    m_lightingShadowProgram->SetUniform("shadowMap", 9);
+    m_lightingShadowProgram->SetUniform("shadowMap", shadowMapTexNum);
     glActiveTexture(GL_TEXTURE0);
 
     // shadowed Material
@@ -298,6 +337,8 @@ void Context::GenerateShadowMap()
 
 void Context::RenderDeffered()
 {
+    glDisable(GL_BLEND); // 디퍼드 쉐이딩 때는 블렌딩 사용 불가
+
     m_deferGeoFramebuffer->Bind();
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -305,13 +346,25 @@ void Context::RenderDeffered()
 
     objDeferredGround->Render(m_camera.view, m_camera.projection);
     objDeferredBox->Render(m_camera.view, m_camera.projection);
+    m_model->Render(m_camera.view, m_camera.projection);
 
+    m_ssaoFramebuffer->Bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, m_width, m_height);
+    objSSAOPlane->Render(m_camera, m_deferGeoFramebuffer, m_ssaoNoiseTexture, vec2(m_width, m_height), m_ssaoRadius, m_ssaoSamples);
+
+    m_ssaoBlurFramebuffer->Bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, m_width, m_height);
+    objBlurPlane->Render(m_ssaoFramebuffer->GetColorAttachment(0));
+
+    //
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
     glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    objDeferredPlane->Render(m_camera, m_deferGeoFramebuffer, m_deferLights);
+    objDeferredPlane->Render(m_camera, m_deferGeoFramebuffer, m_ssaoBlurFramebuffer, m_deferLights, m_useSsao);
 
     //// forward 쉐이딩 전환
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_deferGeoFramebuffer->Get());
@@ -348,7 +401,6 @@ void Context::Render()
     objGrass->Render(m_camera);
     objWall->Render(m_camera, m_light.position, m_wallMaterial);
 
-
     //// post process
     // Framebuffer::BindToDefault();
     // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -378,6 +430,8 @@ void Context::RenderIMGUI()
             ImGui::ColorEdit3("l.specular", value_ptr(m_light.specular));
             ImGui::Checkbox("flash light", &m_freshLightMode);
             ImGui::Checkbox("l.blinn", &m_blinn);
+            ImGui::Checkbox("use SSao", &m_useSsao);
+            ImGui::DragFloat("ssao radius", &m_ssaoRadius, 0.01f, 0.f, 5.0f);
         }
 
         ImGui::Checkbox("animation", &m_animation);
@@ -426,6 +480,21 @@ void Context::RenderIMGUI()
                      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
     }
     ImGui::End();
+
+    if (ImGui::Begin("SSAO"))
+    {
+        const char *bufferNames[] = {"original", "blurred"};
+        static int bufferSelect = 0;
+        ImGui::Combo("buffer", &bufferSelect, bufferNames, 2);
+
+        float width = ImGui::GetContentRegionAvailWidth();
+        float height = width * ((float)m_height / (float)m_width);
+        auto selectedAttachment = bufferSelect == 0 ? m_ssaoFramebuffer->GetColorAttachment() : m_ssaoBlurFramebuffer->GetColorAttachment();
+
+        ImGui::Image((ImTextureID)selectedAttachment->Get(),
+                     ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+    }
+    ImGui::End();
 }
 
 void Context::ProcessInput(GLFWwindow *window)
@@ -466,6 +535,14 @@ void Context::Reshape(int width, int height)
         Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),      // position
         Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),      // normal
         Texture::Create(width, height, GL_RGBA, GL_UNSIGNED_BYTE), // albedo
+    });
+
+    m_ssaoFramebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RED),
+    });
+
+    m_ssaoBlurFramebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RED),
     });
 }
 void Context::MouseMove(double x, double y)

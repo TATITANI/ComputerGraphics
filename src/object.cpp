@@ -97,19 +97,11 @@ void Wall::Render(const Camera &cam, const vec3 &lightPos, const MaterialPtr &op
     Draw();
 }
 
-void DeferredPlane::Render(const Camera &cam, const FramebufferPtr &buf, const vector<DeferLight> &_lights)
+void DeferredPlane::Render(const Camera &cam, const FramebufferPtr &gepBuf,const FramebufferPtr &blurBuf, const vector<DeferLight> &_lights, bool useSsao)
 {
-    glActiveTexture(GL_TEXTURE0);
-    buf->GetColorAttachment(0)->Bind();
-    glActiveTexture(GL_TEXTURE1);
-    buf->GetColorAttachment(1)->Bind();
-    glActiveTexture(GL_TEXTURE2);
-    buf->GetColorAttachment(2)->Bind();
-    glActiveTexture(GL_TEXTURE0);
-
-    currentMaterial->SetProperty("gPosition", 0);
-    currentMaterial->SetProperty("gNormal", 1);
-    currentMaterial->SetProperty("gAlbedoSpec", 2);
+    currentMaterial->SetProperty("gPosition", gepBuf->GetColorAttachment(0));
+    currentMaterial->SetProperty("gNormal", gepBuf->GetColorAttachment(1));
+    currentMaterial->SetProperty("gAlbedoSpec", gepBuf->GetColorAttachment(2));
 
     for (size_t i = 0; i < _lights.size(); i++)
     {
@@ -118,7 +110,41 @@ void DeferredPlane::Render(const Camera &cam, const FramebufferPtr &buf, const v
         currentMaterial->SetProperty(posName, _lights[i].position);
         currentMaterial->SetProperty(colorName, _lights[i].color);
     }
+
+    currentMaterial->SetProperty("ssao", blurBuf->GetColorAttachment());
+    currentMaterial->SetProperty("useSsao", useSsao ? 1 : 0);
+
     currentMaterial->SetProperty("transform", trf.GetTransform());
+
+    Draw();
+}
+
+void SSAOPlane::Render(const Camera &cam, const FramebufferPtr &buf, const TexturePtr &noiseTex, const vec2 &windowSize,
+                       const float &radius, const vector<vec3> &samples)
+{
+    currentMaterial->SetProperty("gPosition", buf->GetColorAttachment(0));
+    currentMaterial->SetProperty("gNormal", buf->GetColorAttachment(1));
+    currentMaterial->SetProperty("texNoise", noiseTex);
+    currentMaterial->SetProperty("noiseScale", vec2((float)windowSize.x / (float)noiseTex->GetWidth(),
+                                                    (float)windowSize.y / (float)noiseTex->GetHeight()));
+
+    currentMaterial->SetProperty("view", cam.view);
+    currentMaterial->SetProperty("transform", trf.GetTransform());
+
+    currentMaterial->SetProperty("radius", radius);
+    for (size_t i = 0; i < samples.size(); i++)
+    {
+        auto sampleName = fmt::format("samples[{}]", i);
+        currentMaterial->SetProperty(sampleName, samples[i]);
+    }
+
+    Draw();
+}
+
+void BlurPlane::Render(const TexturePtr &tex)
+{
+    currentMaterial->SetProperty("transform", trf.GetTransform());
+    currentMaterial->SetProperty("tex", tex);
 
     Draw();
 }

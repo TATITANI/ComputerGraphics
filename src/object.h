@@ -11,7 +11,6 @@ using namespace std;
 struct Camera;
 struct DeferLight;
 
-
 CLASS_PTR(Object)
 class Object
 {
@@ -87,7 +86,31 @@ public:
         : Object(_mesh, _trf, _mat){};
     ~DeferredPlane(){};
 
-    void Render(const Camera &cam, const FramebufferPtr &buf, const vector<DeferLight> &_lights);
+    void Render(const Camera &cam, const FramebufferPtr &gepBuf, const FramebufferPtr &blurBuf,
+                const vector<DeferLight> &_lights, bool useSsao);
+};
+
+CLASS_PTR(SSAOPlane)
+class SSAOPlane : public Object
+{
+public:
+    SSAOPlane(MeshPtr &_mesh, Transform _trf, MaterialPtr _mat)
+        : Object(_mesh, _trf, _mat){};
+    ~SSAOPlane(){};
+
+    void Render(const Camera &cam, const FramebufferPtr &buf, const TexturePtr &noiseTex, const vec2 &windowSize,
+                const float &radius, const vector<vec3> &samples);
+};
+
+CLASS_PTR(BlurPlane)
+class BlurPlane : public Object
+{
+public:
+    BlurPlane(MeshPtr &_mesh, Transform _trf, MaterialPtr _mat)
+        : Object(_mesh, _trf, _mat){};
+    ~BlurPlane(){};
+
+    void Render(const TexturePtr &tex);
 };
 
 CLASS_PTR(StencilBox)

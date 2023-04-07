@@ -63,6 +63,7 @@ void TextureMaterial::ApplyTexture(string key, TexturePtr tex, int textureNum)
     // alpha blend
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glDisable(GL_CULL_FACE);
     // glCullFace(GL_BACK); // 뒷면 컬링
     glActiveTexture(GL_TEXTURE0 + textureNum);
@@ -93,7 +94,7 @@ CubemapMaterial::CubemapMaterial(const ProgramPtr &_program)
 DeferredMaterial::DeferredMaterial(const ProgramPtr &_program, const int &lightSize)
 {
     program = _program;
-    vector<string> p = {"transform", "modelTransform", "gPosition", "gNormal", "gAlbedoSpec"};
+    vector<string> p = {"transform", "modelTransform", "gPosition", "gNormal", "gAlbedoSpec", "ssao", "useSsao"};
     for (size_t i = 0; i < lightSize; i++)
     {
         p.push_back(fmt::format("lights[{}].position", i));
@@ -101,4 +102,16 @@ DeferredMaterial::DeferredMaterial(const ProgramPtr &_program, const int &lightS
     }
 
     InitProperty(p);
+}
+
+SSAOMaterial::SSAOMaterial(const ProgramPtr &_program)
+{
+    program = _program;
+    vector<string> keys = {"transform", "modelTransform", "gPosition",
+                           "gNormal", "view", "texNoise", "noiseScale", "radius"};
+
+    for (size_t i = 0; i < 100; i++)
+        keys.push_back(fmt::format("samples[{}]", i));
+
+    InitProperty(keys);
 }

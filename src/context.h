@@ -105,9 +105,22 @@ private:
 
     // deferred shading
     FramebufferPtr m_deferGeoFramebuffer;
-
     ProgramPtr m_deferGeoProgram;
     ProgramPtr m_deferLightProgram;
+
+    // ssao
+    FramebufferPtr m_ssaoFramebuffer;
+    ProgramPtr m_ssaoProgram;
+    ModelUPtr m_model; // for test rendering
+    TexturePtr m_ssaoNoiseTexture;
+
+    std::vector<glm::vec3> m_ssaoSamples;
+    float m_ssaoRadius{1.0f};
+    bool m_useSsao{true};
+
+
+    ProgramPtr m_blurProgram;
+    FramebufferPtr m_ssaoBlurFramebuffer;
 
 private:
     MaterialPtr m_skyboxMaterial;
@@ -124,6 +137,8 @@ private:
     MaterialPtr deferredGeoBoxMaterial;
     MaterialPtr deferredGeoGroundMaterial;
     MaterialPtr deferredLightMaterial;
+    MaterialPtr ssaoMaterial;
+    MaterialPtr ssaoBlurMaterial;
 
     vector<DeferLight> m_deferLights;
 
@@ -138,11 +153,11 @@ private:
     CubemapUPtr objCubemap;
     ObjectUPtr objGrass;
     WallUPtr objWall;
-    ModelUPtr m_model;
     DeferredPlanePtr objDeferredPlane;
     ObjectUPtr objDeferredGround;
     ObjectUPtr objDeferredBox;
-
+    SSAOPlaneUPtr objSSAOPlane;
+    BlurPlaneUPtr objBlurPlane;
 
 private:
     // 창 크기

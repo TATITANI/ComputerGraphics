@@ -10,7 +10,7 @@
 using namespace std;
 using namespace glm;
 
-using FieldType = variant<monostate, int, float, glm::vec3, glm ::vec4, glm::mat4, TexturePtr>;
+using FieldType = variant<monostate, int, float, vec2, vec3, vec4, mat4, TexturePtr>;
 
 CLASS_PTR(Material)
 class Material
@@ -65,4 +65,12 @@ class DeferredMaterial : public Material
 public:
     DeferredMaterial(const ProgramPtr &_program, const int &lightSize);
     ~DeferredMaterial() = default;
+};
+
+CLASS_PTR(SSAOMaterial)
+class SSAOMaterial : public Material
+{
+public:
+    SSAOMaterial(const ProgramPtr &_program);
+    ~SSAOMaterial() = default;
 };

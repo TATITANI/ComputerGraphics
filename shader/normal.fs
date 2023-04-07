@@ -11,7 +11,7 @@ uniform vec3 viewPos;
 uniform vec3 lightPos;
 
 uniform sampler2D diffuse;
-uniform sampler2D normalMap;
+uniform sampler2D normalMap; 
 
 void main() {
     vec3 texColor = texture(diffuse, texCoord).xyz;
