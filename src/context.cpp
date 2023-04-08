@@ -168,16 +168,16 @@ void Context::InitObject()
 {
     objSkybox = ObjectUPtr(new Object(m_box, m_camera.Pos, vec3(1), vec3(50), m_skyboxMaterial));
     objGround = ObjectUPtr(new Object(m_box, vec3(0.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(15.0f, 1.0f, 15.0f), m_groundMaterial));
-    objBox1 = ObjectUPtr(new Object(m_box, vec3(-1.0f, 0.75f, -4.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_box1Material));
-    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(0.0f, 0.75f, 2.0f), vec3(0, 20, 0), vec3(1.5f), m_box2Material));
+    objBox1 = ObjectUPtr(new Object(m_box, vec3(3.0f, 0.75f, -1.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), m_box1Material));
+    stencilBox = StencilBoxUPtr(new StencilBox(m_box, vec3(-5.0f, 0.75f, 3.0f), vec3(0, 20, 0), vec3(1.5f), m_box2Material));
     objPlane1 = ObjectUPtr(new Object(m_plane, vec3(0, 0.5f, 4.0f), vec3(0), vec3(1), m_planeMaterial));
     objPlane2 = ObjectUPtr(new Object(m_plane, vec3(0.2f, 0.5f, 5.0f), vec3(0), vec3(1), m_planeMaterial));
     objPlane3 = ObjectUPtr(new Object(m_plane, vec3(0.4f, 0.5f, 6.0f), vec3(0), vec3(1), m_planeMaterial));
-    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(1.0f, 0.75f, -2.0f), vec3(0, 40, 0), vec3(1.5f), m_cubeMapMaterial));
-    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(1), m_grassMaterial));
+    objCubemap = CubemapUPtr(new Cubemap(m_box, vec3(0.0f, 0.75f, 0.0f), vec3(0, 40, 0), vec3(2.f), m_cubeMapMaterial));
+    objGrass = ObjectUPtr(new Object(m_plane, vec3(0.0f, 0.5f, 0.0f), vec3(0), vec3(0.5f), m_grassMaterial));
     objGrass->ActiveInstancing(10000, 3, 3, 1);
 
-    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, 0.0f), vec3(-45, 0, 0), vec3(1), m_wallMaterial));
+    objWall = WallUPtr(new Wall(m_plane, vec3(0.0f, 3.0f, -8.0f), vec3(-45, 0, 0), vec3(8), m_wallMaterial));
     objDeferredPlane = DeferredPlanePtr(new DeferredPlane(m_plane, Transform(vec3(0), vec3(0), vec3(2)), deferredLightMaterial));
     objDeferredGround = ObjectUPtr(new Object(m_box, vec3(-20.0f, -0.5f, 0.0f), vec3(1.0f, 1.0f, 1.0f), vec3(15.0f, 1.0f, 15.0f), deferredGeoGroundMaterial));
     objDeferredBox = ObjectUPtr(new Object(m_box, vec3(-20.0f, 0.75f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.5f, 1.5f, 1.5f), deferredGeoBoxMaterial));
@@ -233,11 +233,17 @@ void Context::UpdateLight(mat4 &projection, mat4 &view)
     {
         // 광원
         m_simpleProgram->Use();
+        // forward
+        m_simpleProgram->SetUniform("color", glm::vec4(1));
+        m_simpleProgram->SetUniform("transform", projection * view * glm::translate(glm::mat4(1.0f), m_light.position) *
+                                                     glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
+        m_box->Draw();
+
+        // deferred
         for (size_t i = 0; i < m_deferLights.size(); i++)
         {
             m_simpleProgram->SetUniform("color", glm::vec4(m_deferLights[i].color, 1.0f));
-            m_simpleProgram->SetUniform("transform", projection * view *
-                                                         glm::translate(glm::mat4(1.0f), m_deferLights[i].position) *
+            m_simpleProgram->SetUniform("transform", projection * view * glm::translate(glm::mat4(1.0f), m_deferLights[i].position) *
                                                          glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
             m_box->Draw();
         }
@@ -314,9 +320,8 @@ void Context::GenerateShadowMap()
     m_lightingShadowProgram->SetUniform("light.directional", m_light.directional ? 1 : 0);
     m_lightingShadowProgram->SetUniform("light.position", m_light.position);
     m_lightingShadowProgram->SetUniform("light.direction", m_light.direction);
-    m_lightingShadowProgram->SetUniform("light.cutoff", vec2(
-                                                            cosf(radians(m_light.cutoff[0])),
-                                                            cosf(radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+    m_lightingShadowProgram->SetUniform("light.cutoff", vec2(cosf(radians(m_light.cutoff[0])),
+                                                             cosf(radians(m_light.cutoff[0] + m_light.cutoff[1]))));
     m_lightingShadowProgram->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
     m_lightingShadowProgram->SetUniform("light.ambient", m_light.ambient);
     m_lightingShadowProgram->SetUniform("light.diffuse", m_light.diffuse);
@@ -453,12 +458,10 @@ void Context::RenderIMGUI()
             m_camera.Pitch = 0;
             m_camera.Pos = vec3(0, 0, 3);
         }
-        ImGui::Text("This is first text...");
     }
 
     float aspectRatio = (float)m_width / m_height;
-    // ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(),
-    //              ImVec2(150 * aspectRatio, 150));
+    ImGui::Text("Shadow Map");
     ImGui::Image((ImTextureID)m_shadowMap->GetShadowMap()->Get(),
                  ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
     ImGui::End();

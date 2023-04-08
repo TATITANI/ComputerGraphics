@@ -49,5 +49,4 @@ void main() {
 
     fragColor = 1.0 - occlusion / KERNEL_SIZE;
 
-
 }
